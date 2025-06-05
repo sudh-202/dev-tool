@@ -138,18 +138,20 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
 
       {/* Main sidebar */}
       <div className={cn(
-        "fixed md:relative inset-y-0 left-0 w-64 max-w-[85vw] bg-sidebar border-r border-sidebar-border z-50 transition-transform duration-300 md:translate-x-0 flex flex-col h-screen overflow-hidden",
+        "fixed md:fixed inset-y-0 left-0 w-64 max-w-[85vw] bg-sidebar border-r border-sidebar-border z-50 transition-transform duration-300 md:translate-x-0 flex flex-col h-screen",
         isMobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="p-4 sm:p-6 pt-14 md:pt-6 border-b border-sidebar-border">
+        {/* Header section - always visible */}
+        <div className="p-4 sm:p-6 pt-14 md:pt-6 border-b border-sidebar-border shrink-0">
           <Logo />
           <p className="text-sm text-sidebar-foreground/60 mt-1">
             Your developer tools hub
           </p>
         </div>
 
-        <ScrollArea className="flex-1 p-3 sm:p-4 overflow-y-auto">
-          <div className="space-y-2">
+        {/* Scrollable content area */}
+        <ScrollArea className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="p-3 sm:p-4 space-y-2">
             {pinnedCount > 0 && (
               <Button
                 variant={selectedCategory === 'pinned' ? 'secondary' : 'ghost'}
@@ -254,16 +256,16 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
           </div>
         </ScrollArea>
 
-        {/* AI Model Selector */}
-        <div className="p-3 sm:p-4 border-t border-sidebar-border">
+        {/* AI Provider section - fixed at bottom */}
+        <div className="p-3 sm:p-4 border-t border-sidebar-border shrink-0">
           <div className="mb-2 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider px-1">
             AI Provider
           </div>
           <AIModelSelector variant="sidebar" />
         </div>
 
-        {/* Logout button at bottom */}
-        <div className="p-3 sm:p-4 border-t border-sidebar-border mt-auto">
+        {/* Logout button - fixed at bottom */}
+        <div className="p-3 sm:p-4 border-t border-sidebar-border mt-auto shrink-0">
           <Button
             variant="ghost"
             className="w-full justify-start h-9 px-2 sm:px-3 font-normal text-sm"
