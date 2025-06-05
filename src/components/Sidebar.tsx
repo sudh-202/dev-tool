@@ -138,7 +138,7 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
 
       {/* Main sidebar */}
       <div className={cn(
-        "fixed md:fixed inset-y-0 left-0 w-64 max-w-[85vw] bg-sidebar border-r border-sidebar-border z-50 transition-transform duration-300 md:translate-x-0 flex flex-col h-screen",
+        "fixed md:fixed inset-y-0 left-0 w-60 max-w-[80vw] bg-sidebar border-r border-sidebar-border z-50 transition-transform duration-300 md:translate-x-0 flex flex-col h-screen",
         isMobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Header section - always visible */}
@@ -158,11 +158,11 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
                 className="w-full justify-between h-9 px-2 sm:px-3 font-normal text-sm"
                 onClick={() => handleCategorySelect('pinned')}
               >
-                <div className="flex items-center">
-                  <BookmarkCheck className="h-4 w-4 mr-1.5 sm:mr-2 text-sidebar-foreground" />
-                  <span className="text-sidebar-foreground">Pinned</span>
+                <div className="flex items-center min-w-0">
+                  <BookmarkCheck className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0 text-sidebar-foreground" />
+                  <span className="text-sidebar-foreground truncate">Pinned</span>
                 </div>
-                <Badge variant="secondary" className="bg-sidebar-accent/50 text-sidebar-foreground text-xs">
+                <Badge variant="secondary" className="bg-sidebar-accent/50 text-sidebar-foreground text-xs flex-shrink-0">
                   {pinnedCount}
                 </Badge>
               </Button>
@@ -173,11 +173,11 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
               className="w-full justify-between h-9 px-2 sm:px-3 font-normal text-sm"
               onClick={() => handleCategorySelect('all')}
             >
-              <div className="flex items-center">
-                <LayoutGrid className="h-4 w-4 mr-1.5 sm:mr-2 text-sidebar-foreground" />
-                <span className="text-sidebar-foreground">All Tools</span>
+              <div className="flex items-center min-w-0">
+                <LayoutGrid className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0 text-sidebar-foreground" />
+                <span className="text-sidebar-foreground truncate">All Tools</span>
               </div>
-              <Badge variant="secondary" className="bg-sidebar-accent/50 text-sidebar-foreground text-xs">
+              <Badge variant="secondary" className="bg-sidebar-accent/50 text-sidebar-foreground text-xs flex-shrink-0">
                 {categories.reduce((sum, cat) => sum + cat.toolCount, 0)}
               </Badge>
             </Button>
@@ -192,8 +192,8 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
                 }
               }}
             >
-              <Sparkles className="h-4 w-4 mr-1.5 sm:mr-2 text-sidebar-foreground" />
-              <span className="text-sidebar-foreground">AI Search</span>
+              <Sparkles className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0 text-sidebar-foreground" />
+              <span className="text-sidebar-foreground truncate">AI Search</span>
             </Button>
 
             <Button
@@ -206,8 +206,8 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
                 }
               }}
             >
-              <StickyNote className="h-4 w-4 mr-1.5 sm:mr-2 text-sidebar-foreground" />
-              <span className="text-sidebar-foreground">Quick Notes</span>
+              <StickyNote className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0 text-sidebar-foreground" />
+              <span className="text-sidebar-foreground truncate">Quick Notes</span>
             </Button>
 
             <div className="py-2">
@@ -222,7 +222,7 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
                     className="w-full justify-between h-9 px-2 sm:px-3 font-normal text-sm"
                     onClick={() => handleCategorySelect(category.name)}
                   >
-                    <div className="flex items-center min-w-0">
+                    <div className="flex items-center min-w-0 overflow-hidden">
                       {getCategoryIcon(category.name)}
                       <span className="text-sidebar-foreground truncate ml-1.5 sm:ml-2">{category.name}</span>
                     </div>
@@ -271,8 +271,8 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
             className="w-full justify-start h-9 px-2 sm:px-3 font-normal text-sm"
             onClick={handleLogout}
           >
-            <LogOut className="h-4 w-4 mr-1.5 sm:mr-2 text-sidebar-foreground" />
-            <span className="text-sidebar-foreground">Logout</span>
+            <LogOut className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0 text-sidebar-foreground" />
+            <span className="text-sidebar-foreground truncate">Logout</span>
           </Button>
         </div>
 

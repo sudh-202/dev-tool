@@ -361,7 +361,7 @@ const Index = () => {
         onAIPrompt={() => setIsAIPromptOpen(true)}
       />
       
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col md:ml-60">
         <header className="border-b border-border bg-card px-4 sm:px-8 py-4 mt-12 md:mt-0">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
             <div className="flex items-center justify-between">
