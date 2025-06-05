@@ -5,9 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, X, Eye, EyeOff, Copy } from 'lucide-react';
+import { Sparkles, X, Eye, EyeOff, Copy, AlertCircle } from 'lucide-react';
 import { categorizeAndTagTool } from '@/services/aiService';
 import { toast } from '@/hooks/use-toast';
 import { SmartInputParser } from './SmartInputParser';
@@ -37,6 +37,8 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
   const [tagInput, setTagInput] = useState('');
   const [isAIProcessing, setIsAIProcessing] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [formSubmitted, setFormSubmitted] = useState(false);
 
   useEffect(() => {
     if (editingTool) {
@@ -68,7 +70,30 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
     }
     setTagInput('');
     setShowApiKey(false);
+    setErrors({});
+    setFormSubmitted(false);
   }, [editingTool, isOpen]);
+
+  const validateForm = () => {
+    const newErrors: {[key: string]: string} = {};
+    
+    if (!formData.name.trim()) {
+      newErrors.name = 'Tool name is required';
+    }
+    
+    if (!formData.url.trim()) {
+      newErrors.url = 'URL is required';
+    } else if (!/^https?:\/\/.+/.test(formData.url)) {
+      newErrors.url = 'Please enter a valid URL (including http:// or https://)';
+    }
+    
+    if (!formData.category) {
+      newErrors.category = 'Category is required';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSmartParse = (parsed: any) => {
     setFormData(prev => ({
@@ -87,7 +112,14 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
   };
 
   const handleAIEnhance = async () => {
-    if (!formData.name || !formData.url) return;
+    if (!formData.name || !formData.url) {
+      setErrors(prev => ({
+        ...prev,
+        name: !formData.name ? 'Tool name is required for AI enhancement' : '',
+        url: !formData.url ? 'URL is required for AI enhancement' : ''
+      }));
+      return;
+    }
 
     setIsAIProcessing(true);
     try {
@@ -99,6 +131,11 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
       }));
     } catch (error) {
       console.error('AI categorization failed:', error);
+      toast({
+        title: "AI Enhancement Failed",
+        description: "Could not enhance the tool with AI. Please fill in the details manually.",
+        variant: "destructive"
+      });
     } finally {
       setIsAIProcessing(false);
     }
@@ -131,9 +168,33 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
     }
   };
 
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // Clear error for this field if it exists
+    if (errors[field]) {
+      setErrors(prev => {
+        const newErrors = {...prev};
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.url || !formData.category) return;
+    setFormSubmitted(true);
+    
+    const isValid = validateForm();
+    if (!isValid) {
+      // Show error toast
+      toast({
+        title: "Missing required fields",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
 
     onSave({
       ...formData,
@@ -151,6 +212,11 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
           <DialogTitle>
             {editingTool ? 'Edit Tool' : 'Add New Tool'}
           </DialogTitle>
+          <DialogDescription>
+            {editingTool 
+              ? 'Update the details of your developer tool.' 
+              : 'Add a new developer tool to your dashboard.'}
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -160,25 +226,39 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name" className={errors.name ? "text-destructive" : ""}>Name*</Label>
               <Input
                 id="name"
                 value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                onChange={(e) => handleInputChange('name', e.target.value)}
                 placeholder="Tool name"
-                required
+                className={errors.name ? "border-destructive" : ""}
+                aria-invalid={!!errors.name}
               />
+              {errors.name && (
+                <p className="text-xs text-destructive flex items-center mt-1">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  {errors.name}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="url">URL</Label>
+              <Label htmlFor="url" className={errors.url ? "text-destructive" : ""}>URL*</Label>
               <Input
                 id="url"
                 type="url"
                 value={formData.url}
-                onChange={(e) => setFormData(prev => ({ ...prev, url: e.target.value }))}
+                onChange={(e) => handleInputChange('url', e.target.value)}
                 placeholder="https://example.com"
-                required
+                className={errors.url ? "border-destructive" : ""}
+                aria-invalid={!!errors.url}
               />
+              {errors.url && (
+                <p className="text-xs text-destructive flex items-center mt-1">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  {errors.url}
+                </p>
+              )}
             </div>
           </div>
 
@@ -187,7 +267,7 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
             <Textarea
               id="description"
               value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              onChange={(e) => handleInputChange('description', e.target.value)}
               placeholder="Brief description of the tool"
               rows={2}
             />
@@ -200,7 +280,7 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
                 id="email"
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                onChange={(e) => handleInputChange('email', e.target.value)}
                 placeholder="user@example.com"
               />
             </div>
@@ -212,7 +292,7 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
                     id="apiKey"
                     type={showApiKey ? "text" : "password"}
                     value={formData.apiKey}
-                    onChange={(e) => setFormData(prev => ({ ...prev, apiKey: e.target.value }))}
+                    onChange={(e) => handleInputChange('apiKey', e.target.value)}
                     placeholder="API key (optional)"
                   />
                   {formData.apiKey && (
@@ -244,12 +324,15 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
 
           <div className="flex gap-2">
             <div className="flex-1 space-y-2">
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="category" className={errors.category ? "text-destructive" : ""}>Category*</Label>
               <Select
                 value={formData.category}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+                onValueChange={(value) => handleInputChange('category', value)}
               >
-                <SelectTrigger className={formData.category ? '' : 'text-muted-foreground'}>
+                <SelectTrigger 
+                  className={errors.category ? "border-destructive text-destructive" : formData.category ? "" : "text-muted-foreground"}
+                  aria-invalid={!!errors.category}
+                >
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -260,8 +343,11 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
                   ))}
                 </SelectContent>
               </Select>
-              {formData.name && formData.url && !formData.category && (
-                <p className="text-xs text-muted-foreground mt-1">Please select a category</p>
+              {errors.category && (
+                <p className="text-xs text-destructive flex items-center mt-1">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  {errors.category}
+                </p>
               )}
             </div>
             <div className="flex items-end">
@@ -338,10 +424,14 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
             <Textarea
               id="notes"
               value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              onChange={(e) => handleInputChange('notes', e.target.value)}
               placeholder="Custom notes, TODOs, or additional information..."
               rows={3}
             />
+          </div>
+          
+          <div className="text-xs text-muted-foreground">
+            * Required fields
           </div>
 
           <DialogFooter>
