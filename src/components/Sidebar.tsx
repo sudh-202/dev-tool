@@ -138,7 +138,7 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
 
       {/* Main sidebar */}
       <div className={cn(
-        "fixed md:relative inset-y-0 left-0 w-64 max-w-[85vw] bg-sidebar border-r border-sidebar-border z-50 transition-transform duration-300 md:translate-x-0 flex flex-col",
+        "fixed md:relative inset-y-0 left-0 w-64 max-w-[85vw] bg-sidebar border-r border-sidebar-border z-50 transition-transform duration-300 md:translate-x-0 flex flex-col h-screen overflow-hidden",
         isMobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="p-4 sm:p-6 pt-14 md:pt-6 border-b border-sidebar-border">
@@ -148,7 +148,7 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
           </p>
         </div>
 
-        <ScrollArea className="flex-1 p-3 sm:p-4">
+        <ScrollArea className="flex-1 p-3 sm:p-4 overflow-y-auto">
           <div className="space-y-2">
             {pinnedCount > 0 && (
               <Button

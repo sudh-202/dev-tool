@@ -113,6 +113,13 @@ const Index = () => {
     return Array.from(tagsSet).sort();
   }, [tools]);
 
+  const [showAllTags, setShowAllTags] = useState(false);
+  
+  // Determine which tags to display initially
+  const visibleTags = useMemo(() => {
+    return showAllTags ? availableTags : availableTags.slice(0, 10);
+  }, [availableTags, showAllTags]);
+
   const filteredTools = useMemo(() => {
     let filtered = tools;
 
@@ -533,7 +540,7 @@ const Index = () => {
               <div className="mb-4">
                 <div className="text-sm font-medium mb-2">Filter by tags:</div>
                 <div className="flex flex-wrap gap-2">
-                  {availableTags.map(tag => (
+                  {visibleTags.map(tag => (
                     <Badge
                       key={tag}
                       variant={selectedTags.includes(tag) ? "default" : "outline"}
@@ -552,6 +559,16 @@ const Index = () => {
                       )}
                     </Badge>
                   ))}
+                  {availableTags.length > 10 && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 text-xs"
+                      onClick={() => setShowAllTags(!showAllTags)}
+                    >
+                      {showAllTags ? "Show Less" : `Show More (${availableTags.length - 10})`}
+                    </Button>
+                  )}
                   {selectedTags.length > 0 && (
                     <Button 
                       variant="ghost" 
