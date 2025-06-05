@@ -1,0 +1,31 @@
+export interface Tool {
+  id: string;
+  name: string;
+  url: string;
+  description?: string;
+  tags: string[];
+  category: string;
+  isPinned: boolean;
+  favicon?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  email?: string;
+  apiKey?: string;
+  notes?: string;
+  rating?: number;
+  lastUsed?: Date;
+  usageCount?: number;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  icon: string;
+  toolCount: number;
+}
+
+export interface DashboardConfig {
+  prompt: string;
+  categories: Category[];
+  createdAt: Date;
+}
