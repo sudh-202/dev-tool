@@ -9,7 +9,4 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJh
 console.log(`Initializing Supabase client with URL: ${SUPABASE_URL.substring(0, 15)}...`);
 console.log(`Key present: ${!!SUPABASE_PUBLISHABLE_KEY}`);
 
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
-
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
