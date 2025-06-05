@@ -23,12 +23,16 @@ import {
   GraduationCap, 
   Folder,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  LogOut
 } from 'lucide-react';
 import { QuickNotes } from './QuickNotes';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AIPromptInput } from './AIPromptInput';
 import { cn } from '@/lib/utils';
+import { logout } from '@/services/authService';
+import { useNavigate } from 'react-router-dom';
+import { toast } from '@/hooks/use-toast';
 
 
 interface SidebarProps {
@@ -44,6 +48,7 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
   const [showNotes, setShowNotes] = useState(false);
   const [showTechNews, setShowTechNews] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const navigate = useNavigate();
   
   // Sort categories by toolCount (highest first)
   const sortedCategories = useMemo(() => {
@@ -86,6 +91,24 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
     onCategorySelect(category);
     if (window.innerWidth < 768) {
       setIsMobileOpen(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast({
+        title: 'Logged out',
+        description: 'You have been successfully logged out',
+      });
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast({
+        title: 'Logout failed',
+        description: 'Failed to log out. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -230,6 +253,18 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
           </div>
         </ScrollArea>
 
+        {/* Logout button at bottom */}
+        <div className="p-3 sm:p-4 border-t border-sidebar-border mt-auto">
+          <Button
+            variant="ghost"
+            className="w-full justify-start h-9 px-2 sm:px-3 font-normal text-sm"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-4 w-4 mr-1.5 sm:mr-2 text-sidebar-foreground" />
+            <span className="text-sidebar-foreground">Logout</span>
+          </Button>
+        </div>
+
         {showNotes && (
           <Dialog open={showNotes} onOpenChange={setShowNotes}>
             <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
@@ -239,6 +274,9 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
                   Quick Notes
                 </div>
               </DialogTitle>
+              <DialogDescription>
+                Create and manage your quick notes
+              </DialogDescription>
               <QuickNotes />
             </DialogContent>
           </Dialog>

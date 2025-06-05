@@ -2,8 +2,12 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://meercmjcymaelulvdqox.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1lZXJjbWpjeW1hZWx1bHZkcW94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYwMTUxNzksImV4cCI6MjA2MTU5MTE3OX0.FFQlvMC2hatf4DJxnhRYc-GYIvh3bxgmebyfOa1IW8w";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://mijwhvxjzomypzhypgtc.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1pand4dnhqem9teXB6aHlwZ3RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTM0NDU0MTMsImV4cCI6MjAyOTAyMTQxM30.CUlmfTnYJXEkgmOaDq2_x9uoFv8K5E2eBcn_0KmRnL8";
+
+// Log Supabase connection details (without sensitive information)
+console.log(`Initializing Supabase client with URL: ${SUPABASE_URL.substring(0, 15)}...`);
+console.log(`Key present: ${!!SUPABASE_PUBLISHABLE_KEY}`);
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";

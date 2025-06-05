@@ -6,6 +6,7 @@ import { Search, Plus, ExternalLink, Loader2, Globe, Code, Palette, Server,
 import { searchTools } from '@/services/aiService';
 import { Tool } from '@/types';
 import { useDebounce } from '@/hooks/useDebounce';
+import { toast } from '@/hooks/use-toast';
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -72,6 +73,7 @@ export function SearchBar({
 
       setIsApiLoading(true);
       try {
+        console.log(`Searching for tools with query: "${debouncedQuery}"`);
         const results = await searchTools(debouncedQuery);
         
         // Filter out results that match existing tools by URL
@@ -91,6 +93,17 @@ export function SearchBar({
         setIsDropdownOpen(localResults.length > 0 || filteredResults.length > 0);
       } catch (error) {
         console.error('Error fetching search results:', error);
+        setApiResults([]);
+        
+        // Display error toast only for non-network related errors
+        // to avoid spamming the user with toasts for connection issues
+        if (!(error instanceof Error && error.message.includes('Failed to fetch'))) {
+          toast({
+            title: "Search error",
+            description: error instanceof Error ? error.message : "Failed to search for tools",
+            variant: "destructive",
+          });
+        }
       } finally {
         setIsApiLoading(false);
       }

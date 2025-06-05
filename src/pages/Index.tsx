@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Tool, Category } from '@/types';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSupabaseTools } from '@/hooks/useSupabaseTools';
 import { Sidebar } from '@/components/Sidebar';
 import { SearchBar } from '@/components/SearchBar';
 import { ToolCard } from '@/components/ToolCard';
@@ -13,7 +14,7 @@ import { QuickNotes } from '@/components/QuickNotes';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Sparkles, Star, Clock, TrendingUp, Grid, List } from 'lucide-react';
+import { Sparkles, Star, Clock, TrendingUp, Grid, List, Loader2 } from 'lucide-react';
 
 const defaultCategories = [
   'Frontend',
@@ -63,7 +64,18 @@ const sampleTools: Tool[] = [
 ];
 
 const Index = () => {
-  const [tools, setTools] = useLocalStorage<Tool[]>('dev-dashboard-tools', sampleTools);
+  const { 
+    tools, 
+    loading, 
+    error,
+    addTool,
+    addMultipleTools,
+    updateTool,
+    togglePin,
+    removeTool,
+    trackToolUsage
+  } = useSupabaseTools();
+
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -165,68 +177,91 @@ const Index = () => {
     new Date().getTime() - new Date(tool.lastUsed).getTime() < 7 * 24 * 60 * 60 * 1000
   ).length;
 
-  const handleSaveTool = (toolData: Omit<Tool, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (editingTool) {
-      // Update existing tool
-      setTools(prev => prev.map(tool => 
-        tool.id === editingTool.id 
-          ? { ...toolData, id: editingTool.id, createdAt: editingTool.createdAt, updatedAt: new Date() }
-          : tool
-      ));
+  const handleSaveTool = async (toolData: Omit<Tool, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      if (editingTool) {
+        // Update existing tool
+        await updateTool({
+          ...editingTool,
+          ...toolData
+        });
+        toast({
+          title: "Tool updated",
+          description: `${toolData.name} has been updated successfully.`,
+        });
+      } else {
+        // Add new tool
+        await addTool(toolData);
+        toast({
+          title: "Tool added",
+          description: `${toolData.name} has been added to your dashboard.`,
+        });
+      }
+      setEditingTool(null);
+    } catch (err) {
       toast({
-        title: "Tool updated",
-        description: `${toolData.name} has been updated successfully.`,
+        title: "Error",
+        description: "Failed to save tool. Please try again.",
+        variant: "destructive"
       });
-    } else {
-      // Add new tool
-      const newTool: Tool = {
-        ...toolData,
-        id: Date.now().toString(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      setTools(prev => [newTool, ...prev]);
-      toast({
-        title: "Tool added",
-        description: `${toolData.name} has been added to your dashboard.`,
-      });
-    }
-    setEditingTool(null);
-  };
-
-  const handleAIToolsGenerated = (aiTools: Omit<Tool, 'id' | 'createdAt' | 'updatedAt' | 'isPinned'>[]) => {
-    const newTools: Tool[] = aiTools.map(tool => ({
-      ...tool,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      isPinned: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }));
-
-    setTools(prev => [...newTools, ...prev]);
-    toast({
-      title: "AI Tools Generated",
-      description: `${newTools.length} tools have been added to your dashboard.`,
-    });
-  };
-
-  const handleDeleteTool = (id: string) => {
-    const tool = tools.find(t => t.id === id);
-    if (tool) {
-      setTools(prev => prev.filter(t => t.id !== id));
-      toast({
-        title: "Tool deleted",
-        description: `${tool.name} has been removed from your dashboard.`,
-      });
+      console.error("Failed to save tool:", err);
     }
   };
 
-  const handleTogglePin = (id: string) => {
-    setTools(prev => prev.map(tool => 
-      tool.id === id 
-        ? { ...tool, isPinned: !tool.isPinned, updatedAt: new Date() }
-        : tool
-    ));
+  const handleAIToolsGenerated = async (aiTools: Omit<Tool, 'id' | 'createdAt' | 'updatedAt' | 'isPinned'>[]) => {
+    try {
+      const toolsWithIsPinned = aiTools.map(tool => ({
+        ...tool,
+        isPinned: false
+      }));
+      
+      await addMultipleTools(toolsWithIsPinned);
+      
+      toast({
+        title: "AI Tools Generated",
+        description: `${aiTools.length} tools have been added to your dashboard.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to generate AI tools. Please try again.",
+        variant: "destructive"
+      });
+      console.error("Failed to generate AI tools:", err);
+    }
+  };
+
+  const handleDeleteTool = async (id: string) => {
+    try {
+      const tool = tools.find(t => t.id === id);
+      if (tool) {
+        await removeTool(id);
+        toast({
+          title: "Tool deleted",
+          description: `${tool.name} has been removed from your dashboard.`,
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to delete tool. Please try again.",
+        variant: "destructive"
+      });
+      console.error("Failed to delete tool:", err);
+    }
+  };
+
+  const handleTogglePin = async (id: string) => {
+    try {
+      await togglePin(id);
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to toggle pin status. Please try again.",
+        variant: "destructive"
+      });
+      console.error("Failed to toggle pin:", err);
+    }
   };
 
   const handleEditTool = (tool: Tool) => {
@@ -234,19 +269,16 @@ const Index = () => {
     setIsAddModalOpen(true);
   };
 
-  const handleToolClick = (tool: Tool) => {
+  const handleToolClick = async (tool: Tool) => {
     // Update usage tracking
-    setTools(prev => prev.map(t => 
-      t.id === tool.id 
-        ? { 
-            ...t, 
-            lastUsed: new Date(), 
-            usageCount: (t.usageCount || 0) + 1,
-            updatedAt: new Date()
-          }
-        : t
-    ));
-    window.open(tool.url, '_blank');
+    try {
+      await trackToolUsage(tool.id);
+      window.open(tool.url, '_blank');
+    } catch (err) {
+      // Just open the URL even if tracking fails
+      window.open(tool.url, '_blank');
+      console.error("Failed to track tool usage:", err);
+    }
   };
 
   const handleCloseModal = () => {
@@ -254,19 +286,25 @@ const Index = () => {
     setEditingTool(null);
   };
 
-  const handleAddAITool = (toolData: Omit<Tool, 'id' | 'createdAt' | 'updatedAt' | 'isPinned'>) => {
-    const newTool: Tool = {
-      ...toolData,
-      id: Date.now().toString(),
-      isPinned: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setTools(prev => [newTool, ...prev]);
-    toast({
-      title: "Tool added",
-      description: `${toolData.name} has been added to your dashboard.`,
-    });
+  const handleAddAITool = async (toolData: Omit<Tool, 'id' | 'createdAt' | 'updatedAt' | 'isPinned'>) => {
+    try {
+      await addTool({
+        ...toolData,
+        isPinned: false
+      });
+      
+      toast({
+        title: "Tool added",
+        description: `${toolData.name} has been added to your dashboard.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Error", 
+        description: "Failed to add tool. Please try again.",
+        variant: "destructive"
+      });
+      console.error("Failed to add AI tool:", err);
+    }
   };
 
   const handleNavigateToTool = (tool: Tool) => {
@@ -473,7 +511,34 @@ const Index = () => {
                 tools={tools}
               />
 
-              {filteredTools.length === 0 ? (
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-4">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    Loading tools...
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    Please wait while we fetch your tools.
+                  </p>
+                </div>
+              ) : error ? (
+                <div className="text-center py-12">
+                  <div className="mx-auto w-24 h-24 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4">
+                    <span className="text-3xl">⚠️</span>
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    Error Loading Tools
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    {error.message || "There was a problem loading your tools. Please try again later."}
+                  </p>
+                  <Button onClick={() => window.location.reload()}>
+                    Try Again
+                  </Button>
+                </div>
+              ) : filteredTools.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-4">
                     <div className="w-8 h-8 bg-muted-foreground/30 rounded" />
