@@ -14,7 +14,8 @@ import { QuickNotes } from '@/components/QuickNotes';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Sparkles, Star, Clock, TrendingUp, Grid, List, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Sparkles, Star, Clock, TrendingUp, Grid, List, Loader2, X } from 'lucide-react';
 
 const defaultCategories = [
   'Frontend',
@@ -83,6 +84,7 @@ const Index = () => {
   const [editingTool, setEditingTool] = useState<Tool | null>(null);
   const [sortBy, setSortBy] = useState<'recent' | 'rating' | 'usage'>('recent');
   const [viewMode, setViewMode] = useLocalStorage<'grid' | 'list'>('view-mode', 'grid');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const categories: Category[] = useMemo(() => {
     const categoryMap = new Map<string, number>();
@@ -102,6 +104,15 @@ const Index = () => {
     }));
   }, [tools]);
 
+  // Get all unique tags across tools
+  const availableTags = useMemo(() => {
+    const tagsSet = new Set<string>();
+    tools.forEach(tool => {
+      tool.tags.forEach(tag => tagsSet.add(tag));
+    });
+    return Array.from(tagsSet).sort();
+  }, [tools]);
+
   const filteredTools = useMemo(() => {
     let filtered = tools;
 
@@ -112,6 +123,13 @@ const Index = () => {
       filtered = filtered.filter(tool => tool.lastUsed);
     } else if (selectedCategory !== 'all') {
       filtered = filtered.filter(tool => tool.category === selectedCategory);
+    }
+
+    // Filter by tags if any are selected
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter(tool => 
+        selectedTags.some(tag => tool.tags.includes(tag))
+      );
     }
 
     // Filter by search query
@@ -140,7 +158,7 @@ const Index = () => {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
     });
-  }, [tools, selectedCategory, searchQuery, sortBy]);
+  }, [tools, selectedCategory, searchQuery, sortBy, selectedTags]);
 
   // Group tools by category for "all" and "pinned" views
   const groupedTools = useMemo(() => {
@@ -511,6 +529,42 @@ const Index = () => {
                 tools={tools}
               />
 
+              {/* Tags filter */}
+              <div className="mb-4">
+                <div className="text-sm font-medium mb-2">Filter by tags:</div>
+                <div className="flex flex-wrap gap-2">
+                  {availableTags.map(tag => (
+                    <Badge
+                      key={tag}
+                      variant={selectedTags.includes(tag) ? "default" : "outline"}
+                      className={`cursor-pointer ${selectedTags.includes(tag) ? "" : "text-muted-foreground"}`}
+                      onClick={() => {
+                        if (selectedTags.includes(tag)) {
+                          setSelectedTags(selectedTags.filter(t => t !== tag));
+                        } else {
+                          setSelectedTags([...selectedTags, tag]);
+                        }
+                      }}
+                    >
+                      {tag}
+                      {selectedTags.includes(tag) && (
+                        <X className="ml-1 h-3 w-3" />
+                      )}
+                    </Badge>
+                  ))}
+                  {selectedTags.length > 0 && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 text-xs"
+                      onClick={() => setSelectedTags([])}
+                    >
+                      Clear all
+                    </Button>
+                  )}
+                </div>
+              </div>
+
               {loading ? (
                 <div className="text-center py-12">
                   <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-4">
@@ -581,7 +635,7 @@ const Index = () => {
                         <h3 className="text-lg font-medium mb-4 pb-1 border-b">
                           {category} <span className="text-muted-foreground text-sm font-normal">({tools.length})</span>
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                           {tools.map((tool) => (
                             <ToolCard
                               key={tool.id}

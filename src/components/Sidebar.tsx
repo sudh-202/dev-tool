@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils';
 import { logout } from '@/services/authService';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
+import { AIModelSelector } from './AIModelSelector';
 
 
 interface SidebarProps {
@@ -252,6 +253,14 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
             </div>
           </div>
         </ScrollArea>
+
+        {/* AI Model Selector */}
+        <div className="p-3 sm:p-4 border-t border-sidebar-border">
+          <div className="mb-2 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider px-1">
+            AI Provider
+          </div>
+          <AIModelSelector variant="sidebar" />
+        </div>
 
         {/* Logout button at bottom */}
         <div className="p-3 sm:p-4 border-t border-sidebar-border mt-auto">

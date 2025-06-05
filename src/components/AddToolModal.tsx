@@ -7,11 +7,23 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, X, Eye, EyeOff, Copy, AlertCircle } from 'lucide-react';
-import { categorizeAndTagTool } from '@/services/aiService';
+import { Sparkles, X, Eye, EyeOff, Copy, AlertCircle, Settings } from 'lucide-react';
+import { 
+  categorizeAndTagTool, 
+  generateFieldContent, 
+  getAvailableAIProviders, 
+  getDefaultProvider,
+  type AIProvider
+} from '@/services/aiService';
 import { toast } from '@/hooks/use-toast';
 import { SmartInputParser } from './SmartInputParser';
 import { ToolRating } from './ToolRating';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from '@/components/ui/popover';
+import { useAIProvider } from '@/contexts/AIProviderContext';
 
 interface AddToolModalProps {
   isOpen: boolean;
@@ -35,10 +47,15 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
     rating: 0,
   });
   const [tagInput, setTagInput] = useState('');
+  const [customCategory, setCustomCategory] = useState('');
   const [isAIProcessing, setIsAIProcessing] = useState(false);
+  const [processingField, setProcessingField] = useState<string | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   const [formSubmitted, setFormSubmitted] = useState(false);
+  
+  // Use global AI provider context instead of local state
+  const { currentProvider } = useAIProvider();
 
   useEffect(() => {
     if (editingTool) {
@@ -54,6 +71,13 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
         notes: editingTool.notes || '',
         rating: editingTool.rating || 0,
       });
+      
+      // If category is not in default list, it's a custom category
+      if (editingTool.category && !categories.includes(editingTool.category)) {
+        setCustomCategory(editingTool.category);
+      } else {
+        setCustomCategory('');
+      }
     } else {
       setFormData({
         name: '',
@@ -67,12 +91,13 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
         notes: '',
         rating: 0,
       });
+      setCustomCategory('');
     }
     setTagInput('');
     setShowApiKey(false);
     setErrors({});
     setFormSubmitted(false);
-  }, [editingTool, isOpen]);
+  }, [editingTool, isOpen, categories]);
 
   const validateForm = () => {
     const newErrors: {[key: string]: string} = {};
@@ -122,8 +147,14 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
     }
 
     setIsAIProcessing(true);
+    setProcessingField('all');
     try {
-      const aiSuggestion = await categorizeAndTagTool(formData.name, formData.url, formData.description);
+      const aiSuggestion = await categorizeAndTagTool(
+        formData.name, 
+        formData.url, 
+        formData.description,
+        currentProvider
+      );
       setFormData(prev => ({
         ...prev,
         category: aiSuggestion.category,
@@ -138,6 +169,66 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
       });
     } finally {
       setIsAIProcessing(false);
+      setProcessingField(null);
+    }
+  };
+
+  const generateAIContent = async (field: 'description' | 'notes' | 'tags') => {
+    if (!formData.name || !formData.url) {
+      setErrors(prev => ({
+        ...prev,
+        name: !formData.name ? 'Tool name is required for AI generation' : '',
+        url: !formData.url ? 'URL is required for AI generation' : ''
+      }));
+      return;
+    }
+
+    setIsAIProcessing(true);
+    setProcessingField(field);
+    try {
+      console.log(`Starting AI generation for ${field} using ${currentProvider}...`);
+      const content = await generateFieldContent(
+        formData.name, 
+        formData.url, 
+        field, 
+        formData.description,
+        currentProvider
+      );
+      console.log(`AI generation result for ${field}:`, content);
+      
+      if (field === 'tags' && Array.isArray(content.tags)) {
+        setFormData(prev => ({
+          ...prev,
+          tags: [...new Set([...prev.tags, ...content.tags])]
+        }));
+      } else if (field === 'description' && content.description) {
+        setFormData(prev => ({
+          ...prev,
+          description: content.description
+        }));
+      } else if (field === 'notes' && content.notes) {
+        setFormData(prev => ({
+          ...prev,
+          notes: content.notes
+        }));
+      } else {
+        throw new Error(`No valid content was generated for ${field}`);
+      }
+
+      toast({
+        title: "AI Generation Complete",
+        description: `${field.charAt(0).toUpperCase() + field.slice(1)} has been generated using ${currentProvider}.`,
+      });
+    } catch (error) {
+      console.error(`AI ${field} generation failed:`, error);
+      toast({
+        title: "AI Generation Failed",
+        description: error instanceof Error ? error.message : `Could not generate ${field}. Please fill in manually.`,
+        variant: "destructive"
+      });
+    } finally {
+      setIsAIProcessing(false);
+      setProcessingField(null);
     }
   };
 
@@ -176,6 +267,40 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
       setErrors(prev => {
         const newErrors = {...prev};
         delete newErrors[field];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleCategoryChange = (value: string) => {
+    if (value === 'custom') {
+      // Don't update category yet, wait for custom input
+      setFormData(prev => ({ ...prev, category: '' }));
+    } else {
+      setFormData(prev => ({ ...prev, category: value }));
+      setCustomCategory('');
+    }
+    
+    // Clear error if it exists
+    if (errors.category) {
+      setErrors(prev => {
+        const newErrors = {...prev};
+        delete newErrors.category;
+        return newErrors;
+      });
+    }
+  };
+
+  const handleCustomCategoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setCustomCategory(value);
+    setFormData(prev => ({ ...prev, category: value }));
+    
+    // Clear error if it exists
+    if (errors.category && value.trim() !== '') {
+      setErrors(prev => {
+        const newErrors = {...prev};
+        delete newErrors.category;
         return newErrors;
       });
     }
@@ -224,6 +349,17 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
             <SmartInputParser onParsed={handleSmartParse} />
           )}
 
+          {/* Show which AI provider is being used */}
+          <div className="flex items-center justify-end">
+            <div className="text-xs text-muted-foreground px-2 py-1 bg-muted rounded-md flex items-center gap-1.5">
+              <Sparkles className="h-3 w-3" />
+              Using <span className="font-medium">
+                {currentProvider === 'openai' ? 'OpenAI (GPT-4)' : 
+                 currentProvider === 'anthropic' ? 'Claude' : 'Gemini AI'}
+              </span>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name" className={errors.name ? "text-destructive" : ""}>Name*</Label>
@@ -263,7 +399,28 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <div className="flex justify-between">
+              <Label htmlFor="description">Description</Label>
+              <div className="flex items-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => generateAIContent('description')}
+                  disabled={isAIProcessing || !formData.name || !formData.url}
+                  className="h-6 text-xs"
+                >
+                  {processingField === 'description' ? (
+                    <>Loading...</>
+                  ) : (
+                    <>
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      Generate with AI
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
             <Textarea
               id="description"
               value={formData.description}
@@ -326,8 +483,8 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
             <div className="flex-1 space-y-2">
               <Label htmlFor="category" className={errors.category ? "text-destructive" : ""}>Category*</Label>
               <Select
-                value={formData.category}
-                onValueChange={(value) => handleInputChange('category', value)}
+                value={categories.includes(formData.category) ? formData.category : 'custom'}
+                onValueChange={handleCategoryChange}
               >
                 <SelectTrigger 
                   className={errors.category ? "border-destructive text-destructive" : formData.category ? "" : "text-muted-foreground"}
@@ -341,8 +498,19 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
                       {category}
                     </SelectItem>
                   ))}
+                  <SelectItem value="custom">Other (Custom)</SelectItem>
                 </SelectContent>
               </Select>
+              {categories.includes(formData.category) ? null : (
+                <div className="mt-2">
+                  <Input
+                    value={customCategory}
+                    onChange={handleCustomCategoryChange}
+                    placeholder="Enter custom category"
+                    className={errors.category ? "border-destructive" : ""}
+                  />
+                </div>
+              )}
               {errors.category && (
                 <p className="text-xs text-destructive flex items-center mt-1">
                   <AlertCircle className="h-3 w-3 mr-1" />
@@ -360,7 +528,7 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
                 className="h-10"
               >
                 <Sparkles className="h-4 w-4 mr-1" />
-                {isAIProcessing ? 'AI...' : 'AI Enhance'}
+                {processingField === 'all' ? 'AI...' : 'AI Enhance'}
               </Button>
             </div>
           </div>
@@ -387,7 +555,28 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
           </div>
 
           <div className="space-y-2">
-            <Label>Tags</Label>
+            <div className="flex justify-between">
+              <Label>Tags</Label>
+              <div className="flex items-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => generateAIContent('tags')}
+                  disabled={isAIProcessing || !formData.name || !formData.url}
+                  className="h-6 text-xs"
+                >
+                  {processingField === 'tags' ? (
+                    <>Loading...</>
+                  ) : (
+                    <>
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      Generate with AI
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
             <div className="flex gap-2">
               <Input
                 value={tagInput}
@@ -420,7 +609,28 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
+            <div className="flex justify-between">
+              <Label htmlFor="notes">Notes</Label>
+              <div className="flex items-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => generateAIContent('notes')}
+                  disabled={isAIProcessing || !formData.name || !formData.url}
+                  className="h-6 text-xs"
+                >
+                  {processingField === 'notes' ? (
+                    <>Loading...</>
+                  ) : (
+                    <>
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      Generate with AI
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
             <Textarea
               id="notes"
               value={formData.notes}

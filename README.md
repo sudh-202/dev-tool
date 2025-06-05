@@ -71,3 +71,90 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+# Developer Tools Dashboard
+
+A modern, minimal web application to organize and access your developer tools. Built with React, TypeScript, and Supabase.
+
+![Developer Tools Dashboard](./public/preview.png)
+
+## Features
+
+- 🧰 **Organize Your Tools**: Keep all your development resources in one place
+- 🔍 **Quick Search**: Find any tool instantly 
+- 🏷️ **Categorization**: Group tools by category and tags
+- 📎 **Pin Important Tools**: Keep your most-used tools at the top
+- 📊 **Usage Tracking**: See which tools you use most often
+- 🌙 **Dark Mode**: Easy on the eyes
+- 💾 **Local Storage**: Works offline with Supabase sync when online
+- 🤖 **AI-powered**: Generate tool descriptions and organize with AI
+
+## Setup
+
+### Requirements
+
+- Node.js 16+
+- npm or yarn
+- Supabase account (optional, for cloud sync)
+
+### Installation
+
+1. Clone the repository
+```bash
+git clone https://github.com/yourusername/dev-dashboard.git
+cd dev-dashboard
+```
+
+2. Install dependencies
+```bash
+npm install
+# or
+yarn
+```
+
+3. Create environment variables file (.env.local)
+```bash
+# Create a .env.local file with the following variables:
+# Supabase configuration
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# AI providers (at least one is recommended)
+VITE_GEMINI_API_KEY=your_gemini_api_key
+VITE_OPENAI_API_KEY=your_openai_api_key
+VITE_ANTHROPIC_API_KEY=your_anthropic_api_key
+```
+
+4. Start the development server
+```bash
+npm run dev
+# or
+yarn dev
+```
+
+## AI Provider Setup
+
+The app supports multiple AI providers for generating tool descriptions, tags, and notes:
+
+### OpenAI
+1. Sign up for an account at [OpenAI](https://platform.openai.com/)
+2. Generate an API key in your dashboard
+3. Add to your .env.local file: `VITE_OPENAI_API_KEY=your_key_here`
+
+### Google Gemini
+1. Sign up at [Google AI Studio](https://aistudio.google.com/)
+2. Get an API key from the credentials section
+3. Add to your .env.local file: `VITE_GEMINI_API_KEY=your_key_here`
+
+### Anthropic Claude
+1. Sign up at [Anthropic](https://console.anthropic.com/)
+2. Generate an API key
+3. Add to your .env.local file: `VITE_ANTHROPIC_API_KEY=your_key_here`
+
+## Supabase Setup
+
+See [README_SUPABASE_SETUP.md](./README_SUPABASE_SETUP.md) for detailed instructions on setting up Supabase for your project.
+
+## License
+
+MIT License

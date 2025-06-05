@@ -16,6 +16,8 @@ import { getAllTools } from "./services/supabaseService";
 import { getUserId } from "./services/authService";
 import { checkMigrationNeeded } from "./utils/migrationUtils";
 import { Button } from "@/components/ui/button";
+import { AIProviderProvider } from "@/contexts/AIProviderContext";
+import { AIModelSelector } from "@/components/AIModelSelector";
 
 const queryClient = new QueryClient();
 
@@ -136,94 +138,96 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        
-        {/* Migration Dialog */}
-        <Dialog open={showMigration} onOpenChange={setShowMigration}>
-          <DialogContent className="sm:max-w-md">
-            <DialogTitle>Migrate Your Tools</DialogTitle>
-            <DialogDescription>
-              Migrate your existing tools from localStorage to your Supabase database
-            </DialogDescription>
-            <MigrationPrompt onComplete={() => {
-              setShowMigration(false);
-            }} />
-          </DialogContent>
-        </Dialog>
+      <AIProviderProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          
+          {/* Migration Dialog */}
+          <Dialog open={showMigration} onOpenChange={setShowMigration}>
+            <DialogContent className="sm:max-w-md">
+              <DialogTitle>Migrate Your Tools</DialogTitle>
+              <DialogDescription>
+                Migrate your existing tools from localStorage to your Supabase database
+              </DialogDescription>
+              <MigrationPrompt onComplete={() => {
+                setShowMigration(false);
+              }} />
+            </DialogContent>
+          </Dialog>
 
-        {/* Database Setup Dialog */}
-        <Dialog open={showDbSetup} onOpenChange={setShowDbSetup}>
-          <DialogContent className="sm:max-w-2xl">
-            <DialogTitle>Database Setup Required</DialogTitle>
-            <DialogDescription>
-              Your Supabase database needs setup before you can use it
-            </DialogDescription>
-            <DatabaseSetupHelper 
-              onComplete={() => setShowDbSetup(false)} 
-              onRefresh={recheckConnection}
-            />
-          </DialogContent>
-        </Dialog>
+          {/* Database Setup Dialog */}
+          <Dialog open={showDbSetup} onOpenChange={setShowDbSetup}>
+            <DialogContent className="sm:max-w-2xl">
+              <DialogTitle>Database Setup Required</DialogTitle>
+              <DialogDescription>
+                Your Supabase database needs setup before you can use it
+              </DialogDescription>
+              <DatabaseSetupHelper 
+                onComplete={() => setShowDbSetup(false)} 
+                onRefresh={recheckConnection}
+              />
+            </DialogContent>
+          </Dialog>
 
-        {/* Developer Tools (hidden by default, press Ctrl+Alt+D to show) */}
-        {showDevTools && (
-          <div className="fixed bottom-4 right-4 z-50 bg-slate-900 p-4 rounded-md shadow-lg border border-slate-700">
-            <h3 className="text-white text-sm font-medium mb-2">Developer Tools</h3>
-            <div className="space-y-2">
-              <Button 
-                size="sm" 
-                variant="destructive" 
-                onClick={resetMigrationState}
-                className="w-full text-xs"
-              >
-                Reset Migration State
-              </Button>
-              <Button 
-                size="sm" 
-                variant="secondary" 
-                onClick={recheckConnection}
-                className="w-full text-xs"
-              >
-                Recheck Connection
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => setShowDevTools(false)}
-                className="w-full text-xs"
-              >
-                Close
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Supabase Error Alert */}
-        {supabaseError && (
-          <div className="fixed top-4 right-4 z-50 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 max-w-md rounded shadow-md">
-            <div className="flex">
-              <div className="py-1">
-                <svg className="h-6 w-6 text-red-500 mr-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              </div>
-              <div>
-                <p className="font-bold">Database Connection Error</p>
-                <p className="text-sm">{supabaseError}</p>
-                <p className="text-sm mt-2">Using local storage for data persistence.</p>
+          {/* Developer Tools (hidden by default, press Ctrl+Alt+D to show) */}
+          {showDevTools && (
+            <div className="fixed bottom-4 right-4 z-50 bg-slate-900 p-4 rounded-md shadow-lg border border-slate-700">
+              <h3 className="text-white text-sm font-medium mb-2">Developer Tools</h3>
+              <div className="space-y-2">
+                <Button 
+                  size="sm" 
+                  variant="destructive" 
+                  onClick={resetMigrationState}
+                  className="w-full text-xs"
+                >
+                  Reset Migration State
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="secondary" 
+                  onClick={recheckConnection}
+                  className="w-full text-xs"
+                >
+                  Recheck Connection
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => setShowDevTools(false)}
+                  className="w-full text-xs"
+                >
+                  Close
+                </Button>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </TooltipProvider>
+          {/* Supabase Error Alert */}
+          {supabaseError && (
+            <div className="fixed top-4 right-4 z-50 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 max-w-md rounded shadow-md">
+              <div className="flex">
+                <div className="py-1">
+                  <svg className="h-6 w-6 text-red-500 mr-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-bold">Database Connection Error</p>
+                  <p className="text-sm">{supabaseError}</p>
+                  <p className="text-sm mt-2">Using local storage for data persistence.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <Routes>
+            <Route path="/" element={<Index />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </TooltipProvider>
+      </AIProviderProvider>
     </QueryClientProvider>
   );
 };

@@ -33,27 +33,27 @@ export function ToolCard({ tool, onEdit, onDelete, onTogglePin, onToolClick }: T
     : null;
 
   return (
-    <Card className="group h-full bg-card border-border/50 hover:border-border hover:shadow-sm transition-all duration-200 animate-fade-in">
-      <CardContent className="p-3 sm:p-6">
-        <div className="flex items-start justify-between mb-2 sm:mb-4">
-          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+    <Card className="group h-full bg-card border-border/50 hover:border-border hover:shadow-sm transition-all duration-200 animate-fade-in overflow-hidden">
+      <CardContent className="p-2 sm:p-3">
+        <div className="flex items-start justify-between mb-1 sm:mb-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
             {faviconUrl && !imageError ? (
               <img
                 src={faviconUrl}
                 alt=""
-                className="w-6 h-6 sm:w-8 sm:h-8 rounded-sm flex-shrink-0"
+                className="w-5 h-5 sm:w-6 sm:h-6 rounded-sm flex-shrink-0"
                 onError={() => setImageError(true)}
               />
             ) : (
-              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-muted rounded-sm flex items-center justify-center flex-shrink-0">
-                <div className="w-3 h-3 sm:w-4 sm:h-4 bg-muted-foreground/30 rounded-sm" />
+              <div className="w-5 h-5 sm:w-6 sm:h-6 bg-muted rounded-sm flex items-center justify-center flex-shrink-0">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-muted-foreground/30 rounded-sm" />
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <h3 className="font-semibold text-sm sm:text-base text-foreground truncate group-hover:text-primary transition-colors">
+              <h3 className="font-medium text-xs sm:text-sm text-foreground truncate group-hover:text-primary transition-colors">
                 {tool.name}
               </h3>
-              <p className="text-xs sm:text-sm text-muted-foreground truncate">
+              <p className="text-xs text-muted-foreground truncate">
                 {new URL(tool.url).hostname}
               </p>
             </div>
@@ -63,115 +63,89 @@ export function ToolCard({ tool, onEdit, onDelete, onTogglePin, onToolClick }: T
             size="sm"
             onClick={() => onTogglePin(tool.id)}
             className={cn(
-              "p-1 h-auto w-auto", 
+              "p-0.5 h-auto w-auto", 
               tool.isPinned ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity"
             )}
           >
             {tool.isPinned ? (
-              <BookmarkCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+              <BookmarkCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" />
             ) : (
-              <Bookmark className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+              <Bookmark className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
             )}
           </Button>
         </div>
 
         {tool.description && (
-          <p className="text-xs sm:text-sm text-muted-foreground mb-2 sm:mb-4 line-clamp-2">
+          <p className="text-xs text-muted-foreground mb-1.5 sm:mb-2 line-clamp-2">
             {tool.description}
           </p>
         )}
 
-        <div className="flex items-center gap-2 mb-2 sm:mb-4">
+        <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
           {tool.rating && tool.rating > 0 && (
             <ToolRating rating={tool.rating} onRatingChange={() => {}} readonly />
           )}
           {tool.usageCount && tool.usageCount > 0 && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <TrendingUp className="h-3 w-3" />
+              <TrendingUp className="h-2.5 w-2.5" />
               {tool.usageCount}
             </div>
           )}
           {daysSinceLastUsed !== null && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3" />
+              <Clock className="h-2.5 w-2.5" />
               {daysSinceLastUsed === 0 ? 'Today' : `${daysSinceLastUsed}d ago`}
             </div>
           )}
         </div>
 
         {tool.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2 sm:mb-4">
+          <div className="flex flex-wrap gap-1 mb-1.5 sm:mb-2">
             {tool.tags.slice(0, 3).map((tag) => (
               <Badge
                 key={tag}
                 variant="secondary"
-                className="text-xs bg-muted/50 text-muted-foreground hover:bg-muted/70 border-0 px-1.5 py-0"
+                className="text-[10px] bg-muted/50 text-muted-foreground hover:bg-muted/70 border-0 px-1 py-0 h-4"
               >
                 {tag}
               </Badge>
             ))}
             {tool.tags.length > 3 && (
-              <Badge variant="secondary" className="text-xs bg-muted/50 text-muted-foreground border-0 px-1.5 py-0">
+              <Badge variant="secondary" className="text-[10px] bg-muted/50 text-muted-foreground border-0 px-1 py-0 h-4">
                 +{tool.tags.length - 3}
               </Badge>
             )}
           </div>
         )}
 
-        {/* Mobile Action Buttons */}
-        <div className="flex items-center gap-1 sm:hidden">
+        {/* Action Buttons - One compact row for all screen sizes */}
+        <div className="flex items-center gap-1 flex-wrap">
           <Button
             variant="outline"
             size="sm"
             onClick={() => onToolClick(tool)}
-            className="flex-1 h-7 text-xs bg-background hover:bg-accent border-border/50"
+            className="flex-1 h-6 text-[10px] sm:text-xs bg-background hover:bg-accent border-border/50 px-1 sm:px-2 min-w-0 inline-flex items-center justify-center"
           >
-            <ExternalLink className="h-3 w-3 mr-1" />
-            Visit
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onEdit(tool)}
-            className="h-7 w-7 text-xs hover:bg-accent"
-          >
-            <Pencil className="h-3 w-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onDelete(tool.id)}
-            className="h-7 w-7 text-xs hover:bg-destructive/10 hover:text-destructive"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
-
-        {/* Desktop Action Buttons */}
-        <div className="hidden sm:flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onToolClick(tool)}
-            className="flex-1 h-8 text-xs bg-background hover:bg-accent border-border/50"
-          >
-            Visit
+            <ExternalLink className="h-2.5 w-2.5 mr-0.5 sm:mr-1 flex-shrink-0" />
+            <span className="truncate">Visit</span>
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => onEdit(tool)}
-            className="h-8 px-3 text-xs hover:bg-accent"
+            className="h-6 px-1 sm:px-1.5 text-[10px] sm:text-xs hover:bg-accent min-w-0 inline-flex items-center justify-center"
           >
-            Edit
+            <Pencil className="h-2.5 w-2.5 mr-0.5 sm:mr-1 flex-shrink-0" />
+            <span className="truncate">Edit</span>
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => onDelete(tool.id)}
-            className="h-8 px-3 text-xs hover:bg-destructive/10 hover:text-destructive"
+            className="h-6 px-1 sm:px-1.5 text-[10px] sm:text-xs hover:bg-destructive/10 hover:text-destructive min-w-0 inline-flex items-center justify-center"
           >
-            Delete
+            <Trash2 className="h-2.5 w-2.5 mr-0.5 sm:mr-1 flex-shrink-0" />
+            <span className="truncate">Delete</span>
           </Button>
         </div>
       </CardContent>
