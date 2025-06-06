@@ -75,27 +75,26 @@ type SupabaseTool = Tables<'tools'>;
 
 // Function to convert Supabase tool to application Tool
 const mapFromSupabase = (tool: SupabaseTool): Tool => {
-  // For backward compatibility, handle missing fields
+  // Return a properly formatted Tool with categories as an array
   return {
     id: tool.id,
     name: tool.title,
     url: tool.url || '',
     description: tool.description || '',
-    // Convert string to array if stored as string in some cases, or use empty array as default
-    tags: Array.isArray(tool.tags) ? tool.tags : (typeof tool.tags === 'string' ? JSON.parse(tool.tags) : []),
-    // Handle multiple categories
-    categories: Array.isArray(tool.categories) ? tool.categories : (tool.category ? [tool.category] : []),
-    category: tool.category, // Keep for backward compatibility
-    isPinned: tool.is_favorite || false,
-    isFavorite: (tool as any).is_favorite || false, // Add isFavorite field
-    favicon: tool.logo_url || undefined,
+    category: tool.category || 'Other', // Maintain category field for backward compatibility
+    isPinned: Boolean(tool.is_favorite),
+    tags: Array.isArray(tool.tags) ? tool.tags : [],
     createdAt: new Date(tool.created_at),
     updatedAt: new Date(tool.updated_at),
-    rating: tool.rating || undefined,
-    // Handle custom fields that might not be in the base schema
-    email: (tool as any).email || undefined,
-    apiKey: (tool as any).api_key || undefined,
-    notes: (tool as any).notes || undefined,
+    favicon: tool.logo_url || undefined,
+    rating: tool.rating || 0,
+    // Handle multiple categories
+    categories: Array.isArray(tool.categories) ? tool.categories : 
+               (tool.category ? [tool.category] : ['Other']),
+    isFavorite: Boolean((tool as any).is_favorite || false),
+    notes: (tool as any).notes,
+    apiKey: (tool as any).api_key,
+    email: (tool as any).email,
     lastUsed: (tool as any).last_used ? new Date((tool as any).last_used) : undefined,
     usageCount: (tool as any).usage_count || 0,
   };
@@ -357,9 +356,15 @@ export const updateTool = async (tool: Tool): Promise<Tool> => {
   try {
     const supabaseTool = mapToSupabaseUpdate(tool);
     
+    console.log('Updating tool with data:', JSON.stringify(supabaseTool, null, 2));
+    
     const { data, error } = await supabase
       .from('tools')
-      .update(supabaseTool)
+      .update({
+        ...supabaseTool,
+        // Explicitly ensure categories is included in the update
+        categories: tool.categories
+      })
       .eq('id', tool.id)
       .eq('user_id', getUserId())
       .select()
@@ -552,5 +557,249 @@ export const deleteTool = async (id: string): Promise<void> => {
     // Fall back to localStorage
     const tools = getLocalTools();
     saveLocalTools(tools.filter(tool => tool.id !== id));
+  }
+};
+
+// Add a tool to a category directly
+export const addToolToCategory = async (toolId: string, category: string): Promise<void> => {
+  // First check if Supabase is available
+  if (!(await checkSupabaseAvailability())) {
+    console.log('Supabase unavailable, using localStorage fallback');
+    const tools = getLocalTools();
+    const tool = tools.find(t => t.id === toolId);
+    if (!tool) return;
+    
+    // Get current categories, ensuring it's an array
+    const currentCategories = Array.isArray(tool.categories) ? tool.categories : 
+                             (tool.category ? [tool.category] : []);
+    
+    if (!currentCategories.includes(category)) {
+      const updatedCategories = [...currentCategories, category];
+      saveLocalTools(tools.map(t => {
+        if (t.id === toolId) {
+          return { 
+            ...t, 
+            categories: updatedCategories,
+            updatedAt: new Date() 
+          };
+        }
+        return t;
+      }));
+    }
+    return;
+  }
+
+  try {
+    console.log(`Starting to add tool ${toolId} to category ${category}`);
+    
+    // First get the current tool to get its categories
+    const { data: toolData, error: getError } = await supabase
+      .from('tools')
+      .select('*')
+      .eq('id', toolId)
+      .eq('user_id', getUserId())
+      .single();
+
+    if (getError) {
+      console.error(`Error getting tool data for ID ${toolId}:`, getError);
+      throw getError;
+    }
+
+    console.log('Tool data retrieved:', toolData);
+
+    // Get current categories, ensuring it's an array
+    let currentCategories: string[] = [];
+    
+    if (toolData.categories === null || toolData.categories === undefined) {
+      // Categories field is null/undefined, initialize with category field or empty array
+      currentCategories = toolData.category ? [toolData.category] : [];
+      console.log('Categories field is null/undefined, initialized with:', currentCategories);
+    } else if (Array.isArray(toolData.categories)) {
+      // Categories is already an array
+      currentCategories = toolData.categories;
+      console.log('Categories field is already an array:', currentCategories);
+    } else if (typeof toolData.categories === 'string') {
+      // Categories is a string, try to parse as JSON
+      try {
+        const parsed = JSON.parse(toolData.categories);
+        currentCategories = Array.isArray(parsed) ? parsed : [toolData.categories];
+        console.log('Categories field was a string, parsed as:', currentCategories);
+      } catch (e) {
+        // Not valid JSON, use as a single category
+        currentCategories = [toolData.categories];
+        console.log('Categories field was a string but not JSON, using as single category:', currentCategories);
+      }
+    } else {
+      // Unknown format, fallback to category field or empty array
+      currentCategories = toolData.category ? [toolData.category] : [];
+      console.log('Categories field is in unknown format, using fallback:', currentCategories);
+    }
+    
+    console.log('Final current categories:', currentCategories);
+    
+    // Only add if not already in the category
+    if (!currentCategories.includes(category)) {
+      const updatedCategories = [...currentCategories, category];
+      
+      console.log(`Adding tool ${toolId} to category ${category}`, {
+        currentCategories,
+        updatedCategories
+      });
+      
+      // Create a complete update object with all the required fields
+      const updateData = {
+        categories: updatedCategories,
+        updated_at: new Date().toISOString()
+      };
+      
+      console.log('Update data:', updateData);
+      
+      const { error } = await supabase
+        .from('tools')
+        .update(updateData)
+        .eq('id', toolId)
+        .eq('user_id', getUserId());
+
+      if (error) {
+        console.error(`Error adding tool to category ${category}:`, error);
+        
+        // Handle potential JSONB column issues
+        if (error.message?.includes('column "categories" is of type')) {
+          console.error('This looks like a data type issue with the categories column in the database');
+          
+          // Try to fix by using JSON string instead
+          const stringifyUpdate = {
+            categories: JSON.stringify(updatedCategories),
+            updated_at: new Date().toISOString()
+          };
+          
+          console.log('Trying with stringified categories:', stringifyUpdate);
+          
+          const { error: retryError } = await supabase
+            .from('tools')
+            .update(stringifyUpdate)
+            .eq('id', toolId)
+            .eq('user_id', getUserId());
+            
+          if (retryError) {
+            console.error('Second attempt failed:', retryError);
+            throw retryError;
+          } else {
+            console.log('Second attempt succeeded with stringified categories');
+            return;
+          }
+        }
+        
+        throw error;
+      }
+      
+      console.log('Successfully added tool to category');
+    } else {
+      console.log(`Tool already in category ${category}, no update needed`);
+    }
+  } catch (error) {
+    console.error(`Exception adding tool to category ${category}:`, error);
+    
+    // Check if it's a data type error and provide a clearer message
+    if (error.message?.includes('column "categories" is of type')) {
+      console.error('Database schema issue: The categories column may not be configured as an array type.');
+    }
+    
+    throw error;
+  }
+};
+
+// Check and fix categories column type
+export const checkAndFixCategoriesColumn = async (): Promise<boolean> => {
+  if (!(await checkSupabaseAvailability())) {
+    console.log('Supabase unavailable, cannot check/fix categories column');
+    return false;
+  }
+
+  try {
+    console.log('Checking categories column type...');
+    
+    // First, let's try to get a tool with categories
+    const { data: sampleTool, error: sampleError } = await supabase
+      .from('tools')
+      .select('categories')
+      .limit(1)
+      .single();
+      
+    if (sampleError) {
+      console.error('Error getting sample tool:', sampleError);
+      return false;
+    }
+    
+    console.log('Sample tool categories:', sampleTool?.categories);
+    
+    // Check if categories is already an array
+    if (Array.isArray(sampleTool?.categories)) {
+      console.log('Categories column is already an array type, no fix needed');
+      return true;
+    }
+    
+    console.log('Categories column needs to be fixed, attempting to update all tools...');
+    
+    // Get all tools
+    const { data: allTools, error: getAllError } = await supabase
+      .from('tools')
+      .select('id, categories, category')
+      .eq('user_id', getUserId());
+      
+    if (getAllError) {
+      console.error('Error getting all tools:', getAllError);
+      return false;
+    }
+    
+    console.log(`Found ${allTools?.length || 0} tools to update`);
+    
+    // Update each tool to ensure categories is an array
+    let successCount = 0;
+    for (const tool of allTools || []) {
+      // Convert categories to array if needed
+      let categoriesArray: string[];
+      
+      if (Array.isArray(tool.categories)) {
+        categoriesArray = tool.categories;
+      } else if (typeof tool.categories === 'string') {
+        try {
+          // Try to parse if it's a JSON string
+          categoriesArray = JSON.parse(tool.categories);
+          if (!Array.isArray(categoriesArray)) {
+            categoriesArray = [tool.categories];
+          }
+        } catch {
+          categoriesArray = [tool.categories];
+        }
+      } else if (tool.category) {
+        categoriesArray = [tool.category];
+      } else {
+        categoriesArray = ['Other'];
+      }
+      
+      // Update the tool
+      const { error: updateError } = await supabase
+        .from('tools')
+        .update({
+          categories: categoriesArray,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', tool.id)
+        .eq('user_id', getUserId());
+        
+      if (updateError) {
+        console.error(`Error updating tool ${tool.id}:`, updateError);
+      } else {
+        successCount++;
+      }
+    }
+    
+    console.log(`Successfully updated ${successCount} out of ${allTools?.length || 0} tools`);
+    return successCount > 0;
+    
+  } catch (error) {
+    console.error('Exception checking/fixing categories column:', error);
+    return false;
   }
 }; 

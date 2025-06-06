@@ -127,7 +127,14 @@ export function ToolListItem({ tool, onEdit, onDelete, onTogglePin, onToggleFavo
                     .map(category => (
                       <DropdownMenuItem 
                         key={category} 
-                        onClick={() => onAddToCategory(tool.id, category)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          try {
+                            onAddToCategory(tool.id, category);
+                          } catch (err) {
+                            console.error("Error adding to category:", err);
+                          }
+                        }}
                       >
                         {category}
                       </DropdownMenuItem>
@@ -219,6 +226,10 @@ export function ToolListItem({ tool, onEdit, onDelete, onTogglePin, onToggleFavo
                   variant="ghost"
                   size="sm"
                   className="h-8 px-2"
+                  onClick={(e) => {
+                    // Prevent event bubbling
+                    e.stopPropagation();
+                  }}
                 >
                   <FolderPlus className="h-4 w-4 text-muted-foreground" />
                 </Button>
@@ -229,7 +240,14 @@ export function ToolListItem({ tool, onEdit, onDelete, onTogglePin, onToggleFavo
                   .map(category => (
                     <DropdownMenuItem
                       key={category}
-                      onClick={() => onAddToCategory(tool.id, category)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        try {
+                          onAddToCategory(tool.id, category);
+                        } catch (err) {
+                          console.error("Error adding to category:", err);
+                        }
+                      }}
                     >
                       {category}
                     </DropdownMenuItem>

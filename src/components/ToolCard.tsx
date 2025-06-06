@@ -167,6 +167,10 @@ export function ToolCard({ tool, onEdit, onDelete, onTogglePin, onToggleFavorite
                   variant="ghost"
                   size="sm"
                   className="h-6 px-1 sm:px-1.5 text-[10px] sm:text-xs hover:bg-accent min-w-0 inline-flex items-center justify-center"
+                  onClick={(e) => {
+                    // Prevent event bubbling that might trigger other actions
+                    e.stopPropagation();
+                  }}
                 >
                   <FolderPlus className="h-2.5 w-2.5 mr-0.5 sm:mr-1 flex-shrink-0" />
                   <span className="truncate">Add to</span>
@@ -178,7 +182,16 @@ export function ToolCard({ tool, onEdit, onDelete, onTogglePin, onToggleFavorite
                   .map(category => (
                     <DropdownMenuItem
                       key={category}
-                      onClick={() => onAddToCategory(tool.id, category)}
+                      onClick={(e) => {
+                        // Prevent event bubbling
+                        e.stopPropagation();
+                        // Add to category with error handling
+                        try {
+                          onAddToCategory(tool.id, category);
+                        } catch (err) {
+                          console.error("Error adding to category:", err);
+                        }
+                      }}
                     >
                       {category}
                     </DropdownMenuItem>

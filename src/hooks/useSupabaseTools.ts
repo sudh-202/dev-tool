@@ -9,6 +9,8 @@ import {
   updateToolUsage,
   createMultipleTools,
   checkSupabaseAvailability,
+  addToolToCategory as supabaseAddToolToCategory,
+  checkAndFixCategoriesColumn
 } from '@/services/supabaseService';
 import { useLocalStorage } from './useLocalStorage';
 import { toast } from '@/hooks/use-toast';
@@ -62,6 +64,12 @@ export function useSupabaseTools() {
           ? JSON.parse(localStorage.getItem('sb-mijwhvxjzomypzhypgtc-auth-token') || '{}')?.user?.id 
           : 'anonymous';
         console.log("Current user ID:", userId);
+        
+        // Check and fix categories column if needed
+        if (isSupabaseConnected) {
+          console.log("Checking and fixing categories column if needed...");
+          await checkAndFixCategoriesColumn();
+        }
         
         const supabaseTools = await getAllTools();
         console.log("Tools loaded from Supabase:", supabaseTools);
@@ -314,51 +322,116 @@ export function useSupabaseTools() {
   // Add a tool to a category
   const addToolToCategory = async (toolId: string, category: string) => {
     try {
+      console.log(`Hook: Adding tool ${toolId} to category "${category}"`);
+      
       const tool = tools.find(t => t.id === toolId);
-      if (!tool) return;
+      if (!tool) {
+        console.error(`Tool with ID ${toolId} not found`);
+        toast({
+          title: "Error",
+          description: "Could not find the tool in your collection.",
+          variant: "destructive"
+        });
+        throw new Error(`Tool with ID ${toolId} not found`);
+      }
+      
+      // Make sure categories is initialized and is an array
+      const currentCategories = Array.isArray(tool.categories) ? tool.categories : 
+                               (tool.category ? [tool.category] : []);
       
       // Make sure we don't add duplicate categories
-      if (tool.categories.includes(category)) return;
+      if (currentCategories.includes(category)) {
+        console.log(`Tool already in category: ${category}`);
+        toast({
+          title: "Tool already in category",
+          description: `This tool is already in the "${category}" category.`
+        });
+        return;
+      }
       
-      const updatedCategories = [...tool.categories, category];
+      const updatedCategories = [...currentCategories, category];
+      console.log(`Adding tool to category: ${category}`, updatedCategories);
+      
       const updatedTool = { 
         ...tool, 
         categories: updatedCategories,
         updatedAt: new Date() 
       };
       
-      // If using Supabase
-      if (isSupabaseConnected) {
-        const { error } = await supabase
-          .from('tools')
-          .update({ 
-            categories: updatedCategories,
-            updated_at: updatedTool.updatedAt
-          })
-          .eq('id', toolId);
-          
-        if (error) throw error;
-      } 
-      // If using localStorage
-      else {
-        const updatedTools = tools.map(t => 
-          t.id === toolId ? updatedTool : t
-        );
-        localStorage.setItem('dev-dashboard-tools', JSON.stringify(updatedTools));
-      }
-      
-      // Update local state
+      // Optimistically update the UI first
       setTools(prevTools => 
         prevTools.map(t => t.id === toolId ? updatedTool : t)
       );
-      
-      // Also update cached tools
       setCachedTools(prevTools => 
         prevTools.map(t => t.id === toolId ? updatedTool : t)
       );
       
+      // If using Supabase
+      if (isSupabaseConnected) {
+        try {
+          await supabaseAddToolToCategory(toolId, category);
+          
+          // Successful operation
+          toast({
+            title: "Category added",
+            description: `Tool added to the "${category}" category.`
+          });
+        } catch (error) {
+          console.error("Supabase error adding tool to category:", error);
+          
+          // Revert the optimistic UI update
+          setTools(prevTools => 
+            prevTools.map(t => t.id === toolId ? tool : t)
+          );
+          setCachedTools(prevTools => 
+            prevTools.map(t => t.id === toolId ? tool : t)
+          );
+          
+          toast({
+            title: "Error",
+            description: `Failed to add tool to "${category}" category. ${error.message || 'Please try again.'}`,
+            variant: "destructive"
+          });
+          
+          throw error;
+        }
+      } 
+      // If using localStorage
+      else {
+        try {
+          const updatedTools = tools.map(t => 
+            t.id === toolId ? updatedTool : t
+          );
+          localStorage.setItem('dev-dashboard-tools', JSON.stringify(updatedTools));
+          
+          toast({
+            title: "Category added",
+            description: `Tool added to the "${category}" category.`
+          });
+        } catch (localError) {
+          console.error("localStorage error:", localError);
+          
+          // Revert the optimistic UI update
+          setTools(prevTools => 
+            prevTools.map(t => t.id === toolId ? tool : t)
+          );
+          setCachedTools(prevTools => 
+            prevTools.map(t => t.id === toolId ? tool : t)
+          );
+          
+          toast({
+            title: "Error",
+            description: "Failed to add tool to category in local storage. Please try again.",
+            variant: "destructive"
+          });
+          
+          throw localError;
+        }
+      }
+      
     } catch (error) {
       console.error('Error adding tool to category:', error);
+      // Toast is already shown in the specific error handling sections
       throw error;
     }
   };
