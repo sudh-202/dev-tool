@@ -280,8 +280,8 @@ export function useSupabaseTools() {
         const { error } = await supabase
           .from('tools')
           .update({ 
-            isFavorite: updatedTool.isFavorite,
-            updatedAt: updatedTool.updatedAt
+            is_favorite: updatedTool.isFavorite,
+            updated_at: updatedTool.updatedAt
           })
           .eq('id', id);
           
@@ -292,11 +292,16 @@ export function useSupabaseTools() {
         const updatedTools = tools.map(t => 
           t.id === id ? updatedTool : t
         );
-        localStorage.setItem('dev-tools', JSON.stringify(updatedTools));
+        localStorage.setItem('dev-dashboard-tools', JSON.stringify(updatedTools));
       }
       
       // Update local state
       setTools(prevTools => 
+        prevTools.map(t => t.id === id ? updatedTool : t)
+      );
+      
+      // Also update cached tools
+      setCachedTools(prevTools => 
         prevTools.map(t => t.id === id ? updatedTool : t)
       );
       
@@ -328,7 +333,7 @@ export function useSupabaseTools() {
           .from('tools')
           .update({ 
             categories: updatedCategories,
-            updatedAt: updatedTool.updatedAt
+            updated_at: updatedTool.updatedAt
           })
           .eq('id', toolId);
           
@@ -339,11 +344,16 @@ export function useSupabaseTools() {
         const updatedTools = tools.map(t => 
           t.id === toolId ? updatedTool : t
         );
-        localStorage.setItem('dev-tools', JSON.stringify(updatedTools));
+        localStorage.setItem('dev-dashboard-tools', JSON.stringify(updatedTools));
       }
       
       // Update local state
       setTools(prevTools => 
+        prevTools.map(t => t.id === toolId ? updatedTool : t)
+      );
+      
+      // Also update cached tools
+      setCachedTools(prevTools => 
         prevTools.map(t => t.id === toolId ? updatedTool : t)
       );
       
@@ -372,7 +382,7 @@ export function useSupabaseTools() {
           .from('tools')
           .update({ 
             categories: updatedCategories,
-            updatedAt: updatedTool.updatedAt
+            updated_at: updatedTool.updatedAt
           })
           .eq('id', toolId);
           
@@ -383,11 +393,16 @@ export function useSupabaseTools() {
         const updatedTools = tools.map(t => 
           t.id === toolId ? updatedTool : t
         );
-        localStorage.setItem('dev-tools', JSON.stringify(updatedTools));
+        localStorage.setItem('dev-dashboard-tools', JSON.stringify(updatedTools));
       }
       
       // Update local state
       setTools(prevTools => 
+        prevTools.map(t => t.id === toolId ? updatedTool : t)
+      );
+      
+      // Also update cached tools
+      setCachedTools(prevTools => 
         prevTools.map(t => t.id === toolId ? updatedTool : t)
       );
       

@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { Tool } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bookmark, BookmarkCheck, Clock, TrendingUp, Star, ExternalLink, Pencil, Trash2, MoreVertical, Heart } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Clock, TrendingUp, Star, ExternalLink, Pencil, Trash2, MoreVertical, Heart, FolderPlus } from 'lucide-react';
 import { ToolRating } from './ToolRating';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
 
 interface ToolListItemProps {
   tool: Tool;
@@ -13,9 +13,11 @@ interface ToolListItemProps {
   onTogglePin: (id: string) => void;
   onToggleFavorite: (id: string) => void;
   onToolClick: (tool: Tool) => void;
+  onAddToCategory?: (toolId: string, categoryName: string) => void;
+  availableCategories?: string[];
 }
 
-export function ToolListItem({ tool, onEdit, onDelete, onTogglePin, onToggleFavorite, onToolClick }: ToolListItemProps) {
+export function ToolListItem({ tool, onEdit, onDelete, onTogglePin, onToggleFavorite, onToolClick, onAddToCategory, availableCategories }: ToolListItemProps) {
   const [imageError, setImageError] = useState(false);
   
   const getFaviconUrl = (url: string) => {
@@ -112,6 +114,33 @@ export function ToolListItem({ tool, onEdit, onDelete, onTogglePin, onToggleFavo
               <Heart className={`h-3.5 w-3.5 mr-2 ${tool.isFavorite ? "text-rose-500" : ""}`} />
               {tool.isFavorite ? "Remove from Favorites" : "Add to Favorites"}
             </DropdownMenuItem>
+            
+            {/* Add to Category submenu for mobile */}
+            {onAddToCategory && availableCategories && availableCategories.length > 0 && (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <FolderPlus className="h-3.5 w-3.5 mr-2" /> Add to category
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {availableCategories
+                    .filter(category => !tool.categories.includes(category))
+                    .map(category => (
+                      <DropdownMenuItem 
+                        key={category} 
+                        onClick={() => onAddToCategory(tool.id, category)}
+                      >
+                        {category}
+                      </DropdownMenuItem>
+                    ))}
+                  {availableCategories.filter(category => !tool.categories.includes(category)).length === 0 && (
+                    <DropdownMenuItem disabled>
+                      No more categories available
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            )}
+            
             <DropdownMenuItem onClick={() => onEdit(tool)}>
               <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
             </DropdownMenuItem>
@@ -181,6 +210,38 @@ export function ToolListItem({ tool, onEdit, onDelete, onTogglePin, onToggleFavo
               <Bookmark className="h-4 w-4 text-muted-foreground" />
             )}
           </Button>
+          
+          {/* Add to Category dropdown for desktop */}
+          {onAddToCategory && availableCategories && availableCategories.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2"
+                >
+                  <FolderPlus className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-h-64 overflow-auto">
+                {availableCategories
+                  .filter(category => !tool.categories.includes(category))
+                  .map(category => (
+                    <DropdownMenuItem
+                      key={category}
+                      onClick={() => onAddToCategory(tool.id, category)}
+                    >
+                      {category}
+                    </DropdownMenuItem>
+                  ))}
+                {availableCategories.filter(category => !tool.categories.includes(category)).length === 0 && (
+                  <DropdownMenuItem disabled>
+                    No more categories available
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           
           <Button
             variant="ghost"

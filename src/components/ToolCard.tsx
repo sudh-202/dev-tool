@@ -3,9 +3,18 @@ import { Tool } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bookmark, BookmarkCheck, Clock, TrendingUp, ExternalLink, Pencil, Trash2, Heart, HeartOff } from 'lucide-react';
+import { 
+  Bookmark, BookmarkCheck, Clock, TrendingUp, ExternalLink, 
+  Pencil, Trash2, Heart, HeartOff, FolderPlus 
+} from 'lucide-react';
 import { ToolRating } from './ToolRating';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 
 interface ToolCardProps {
   tool: Tool;
@@ -14,9 +23,11 @@ interface ToolCardProps {
   onTogglePin: (id: string) => void;
   onToggleFavorite: (id: string) => void;
   onToolClick: (tool: Tool) => void;
+  onAddToCategory?: (toolId: string, categoryName: string) => void;
+  availableCategories?: string[];
 }
 
-export function ToolCard({ tool, onEdit, onDelete, onTogglePin, onToggleFavorite, onToolClick }: ToolCardProps) {
+export function ToolCard({ tool, onEdit, onDelete, onTogglePin, onToggleFavorite, onToolClick, onAddToCategory, availableCategories }: ToolCardProps) {
   const [imageError, setImageError] = useState(false);
   
   const getFaviconUrl = (url: string) => {
@@ -147,6 +158,40 @@ export function ToolCard({ tool, onEdit, onDelete, onTogglePin, onToggleFavorite
             <ExternalLink className="h-2.5 w-2.5 mr-0.5 sm:mr-1 flex-shrink-0" />
             <span className="truncate">Visit</span>
           </Button>
+          
+          {/* Add to Category dropdown */}
+          {onAddToCategory && availableCategories && availableCategories.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-1 sm:px-1.5 text-[10px] sm:text-xs hover:bg-accent min-w-0 inline-flex items-center justify-center"
+                >
+                  <FolderPlus className="h-2.5 w-2.5 mr-0.5 sm:mr-1 flex-shrink-0" />
+                  <span className="truncate">Add to</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-h-64 overflow-auto">
+                {availableCategories
+                  .filter(category => !tool.categories.includes(category))
+                  .map(category => (
+                    <DropdownMenuItem
+                      key={category}
+                      onClick={() => onAddToCategory(tool.id, category)}
+                    >
+                      {category}
+                    </DropdownMenuItem>
+                  ))}
+                {availableCategories.filter(category => !tool.categories.includes(category)).length === 0 && (
+                  <DropdownMenuItem disabled>
+                    No more categories available
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          
           <Button
             variant="ghost"
             size="sm"

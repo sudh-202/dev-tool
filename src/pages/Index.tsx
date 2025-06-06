@@ -206,12 +206,15 @@ const Index = () => {
     
     filteredTools.forEach(tool => {
       // Handle compatibility with older data format
-      const primaryCategory = tool.categories?.length ? tool.categories[0] : tool.category || 'Uncategorized';
+      const toolCategories = tool.categories?.length ? tool.categories : (tool.category ? [tool.category] : ['Uncategorized']);
       
-      if (!grouped[primaryCategory]) {
-        grouped[primaryCategory] = [];
-      }
-      grouped[primaryCategory].push(tool);
+      // Add the tool to each of its categories
+      toolCategories.forEach(category => {
+        if (!grouped[category]) {
+          grouped[category] = [];
+        }
+        grouped[category].push(tool);
+      });
     });
 
     // Sort categories by number of tools (most first)
@@ -478,6 +481,46 @@ const Index = () => {
         variant: "destructive"
       });
       console.error("Failed to delete category:", err);
+    }
+  };
+
+  // Helper function to add a tool to a new category
+  const handleAddToolToCategory = async (toolId: string, categoryName: string) => {
+    try {
+      const tool = tools.find(t => t.id === toolId);
+      if (!tool) {
+        toast({
+          title: "Error",
+          description: "Tool not found.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Check if tool already has this category
+      if (tool.categories.includes(categoryName)) {
+        toast({
+          title: "Category exists",
+          description: `Tool is already in the "${categoryName}" category.`
+        });
+        return;
+      }
+
+      // Add the tool to the new category using the addToolToCategory function
+      await addToolToCategory(toolId, categoryName);
+      
+      toast({
+        title: "Category added",
+        description: `Tool has been added to the "${categoryName}" category.`
+      });
+      
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to add tool to category. Please try again.",
+        variant: "destructive"
+      });
+      console.error("Failed to add tool to category:", err);
     }
   };
 
@@ -805,6 +848,8 @@ const Index = () => {
                               onTogglePin={handleTogglePin}
                               onToggleFavorite={handleToggleFavorite}
                               onToolClick={handleToolClick}
+                              onAddToCategory={handleAddToolToCategory}
+                              availableCategories={allCategoryNames}
                             />
                           ))}
                         </div>
@@ -828,6 +873,8 @@ const Index = () => {
                               onTogglePin={handleTogglePin}
                               onToggleFavorite={handleToggleFavorite}
                               onToolClick={handleToolClick}
+                              onAddToCategory={handleAddToolToCategory}
+                              availableCategories={allCategoryNames}
                             />
                           ))}
                         </div>
