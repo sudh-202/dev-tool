@@ -8,16 +8,19 @@ import {
   toggleToolPin,
   updateToolUsage,
   createMultipleTools,
+  checkSupabaseAvailability,
 } from '@/services/supabaseService';
 import { useLocalStorage } from './useLocalStorage';
 import { toast } from '@/hooks/use-toast';
 import { isLoggedIn } from '@/services/authService';
+import { supabase } from '@/integrations/supabase/client';
 
 export function useSupabaseTools() {
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
   
   // Keep tools in localStorage as a fallback/cache
   const [cachedTools, setCachedTools] = useLocalStorage<Tool[]>('dev-dashboard-tools-cache', []);
@@ -29,9 +32,15 @@ export function useSupabaseTools() {
         const loggedIn = await isLoggedIn();
         console.log('Authentication status checked:', loggedIn);
         setAuthChecked(true);
+        
+        // Also check Supabase connection
+        const supabaseAvailable = await checkSupabaseAvailability();
+        setIsSupabaseConnected(supabaseAvailable);
+        console.log('Supabase connection status:', supabaseAvailable);
       } catch (err) {
         console.error('Failed to check authentication status:', err);
         setAuthChecked(true); // Proceed anyway
+        setIsSupabaseConnected(false);
       }
     }
     
@@ -116,7 +125,13 @@ export function useSupabaseTools() {
   const addTool = useCallback(async (tool: Omit<Tool, 'id' | 'createdAt' | 'updatedAt'>) => {
     console.log("Adding new tool:", tool);
     try {
-      const newTool = await createTool(tool);
+      // Make sure the tool has a categories array
+      const toolWithCategories = {
+        ...tool,
+        categories: tool.categories || (tool.category ? [tool.category] : [])
+      };
+
+      const newTool = await createTool(toolWithCategories);
       console.log("Tool added successfully:", newTool);
       
       setTools(prev => [newTool, ...prev]);
@@ -145,7 +160,13 @@ export function useSupabaseTools() {
   // Add multiple tools (for AI generation)
   const addMultipleTools = useCallback(async (newTools: Array<Omit<Tool, 'id' | 'createdAt' | 'updatedAt'>>) => {
     try {
-      const addedTools = await createMultipleTools(newTools);
+      // Make sure each tool has a categories array
+      const toolsWithCategories = newTools.map(tool => ({
+        ...tool,
+        categories: tool.categories || (tool.category ? [tool.category] : [])
+      }));
+      
+      const addedTools = await createMultipleTools(toolsWithCategories);
       setTools(prev => [...addedTools, ...prev]);
       setCachedTools(prev => [...addedTools, ...prev]);
       return addedTools;
@@ -242,6 +263,140 @@ export function useSupabaseTools() {
     }
   }, []);
 
+  // Update to handle multiple categories and favorites
+  const toggleFavorite = async (id: string) => {
+    try {
+      const tool = tools.find(t => t.id === id);
+      if (!tool) return;
+      
+      const updatedTool = { 
+        ...tool, 
+        isFavorite: !tool.isFavorite,
+        updatedAt: new Date() 
+      };
+      
+      // If using Supabase
+      if (isSupabaseConnected) {
+        const { error } = await supabase
+          .from('tools')
+          .update({ 
+            isFavorite: updatedTool.isFavorite,
+            updatedAt: updatedTool.updatedAt
+          })
+          .eq('id', id);
+          
+        if (error) throw error;
+      } 
+      // If using localStorage
+      else {
+        const updatedTools = tools.map(t => 
+          t.id === id ? updatedTool : t
+        );
+        localStorage.setItem('dev-tools', JSON.stringify(updatedTools));
+      }
+      
+      // Update local state
+      setTools(prevTools => 
+        prevTools.map(t => t.id === id ? updatedTool : t)
+      );
+      
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      throw error;
+    }
+  };
+
+  // Add a tool to a category
+  const addToolToCategory = async (toolId: string, category: string) => {
+    try {
+      const tool = tools.find(t => t.id === toolId);
+      if (!tool) return;
+      
+      // Make sure we don't add duplicate categories
+      if (tool.categories.includes(category)) return;
+      
+      const updatedCategories = [...tool.categories, category];
+      const updatedTool = { 
+        ...tool, 
+        categories: updatedCategories,
+        updatedAt: new Date() 
+      };
+      
+      // If using Supabase
+      if (isSupabaseConnected) {
+        const { error } = await supabase
+          .from('tools')
+          .update({ 
+            categories: updatedCategories,
+            updatedAt: updatedTool.updatedAt
+          })
+          .eq('id', toolId);
+          
+        if (error) throw error;
+      } 
+      // If using localStorage
+      else {
+        const updatedTools = tools.map(t => 
+          t.id === toolId ? updatedTool : t
+        );
+        localStorage.setItem('dev-tools', JSON.stringify(updatedTools));
+      }
+      
+      // Update local state
+      setTools(prevTools => 
+        prevTools.map(t => t.id === toolId ? updatedTool : t)
+      );
+      
+    } catch (error) {
+      console.error('Error adding tool to category:', error);
+      throw error;
+    }
+  };
+
+  // Remove a tool from a category
+  const removeToolFromCategory = async (toolId: string, category: string) => {
+    try {
+      const tool = tools.find(t => t.id === toolId);
+      if (!tool) return;
+      
+      const updatedCategories = tool.categories.filter(c => c !== category);
+      const updatedTool = { 
+        ...tool, 
+        categories: updatedCategories,
+        updatedAt: new Date() 
+      };
+      
+      // If using Supabase
+      if (isSupabaseConnected) {
+        const { error } = await supabase
+          .from('tools')
+          .update({ 
+            categories: updatedCategories,
+            updatedAt: updatedTool.updatedAt
+          })
+          .eq('id', toolId);
+          
+        if (error) throw error;
+      } 
+      // If using localStorage
+      else {
+        const updatedTools = tools.map(t => 
+          t.id === toolId ? updatedTool : t
+        );
+        localStorage.setItem('dev-tools', JSON.stringify(updatedTools));
+      }
+      
+      // Update local state
+      setTools(prevTools => 
+        prevTools.map(t => t.id === toolId ? updatedTool : t)
+      );
+      
+    } catch (error) {
+      console.error('Error removing tool from category:', error);
+      throw error;
+    }
+  };
+
   return {
     tools,
     loading,
@@ -249,8 +404,11 @@ export function useSupabaseTools() {
     addTool,
     addMultipleTools,
     updateTool: updateToolData,
-    togglePin,
     removeTool,
+    togglePin,
+    toggleFavorite,
+    addToolToCategory,
+    removeToolFromCategory,
     trackToolUsage,
     refreshTools: async () => {
       try {

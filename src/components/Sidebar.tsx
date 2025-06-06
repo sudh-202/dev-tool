@@ -1,6 +1,7 @@
 import { Category } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Logo } from './Logo';
 import { useState, useMemo } from 'react';
@@ -24,7 +25,10 @@ import {
   Folder,
   ChevronRight,
   ChevronLeft,
-  LogOut
+  LogOut,
+  Heart,
+  Check,
+  FolderPlus
 } from 'lucide-react';
 import { QuickNotes } from './QuickNotes';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -41,14 +45,31 @@ interface SidebarProps {
   selectedCategory: string;
   onCategorySelect: (category: string) => void;
   pinnedCount: number;
+  favoritesCount: number;
   onAIPrompt: () => void;
+  onCreateCategory: (categoryName: string) => void;
+  onDeleteCategory?: (categoryName: string) => void;
+  customCategories?: string[];
 }
 
-export function Sidebar({ categories, selectedCategory, onCategorySelect, pinnedCount, onAIPrompt }: SidebarProps) {
+export function Sidebar({ 
+  categories, 
+  selectedCategory, 
+  onCategorySelect, 
+  pinnedCount, 
+  favoritesCount, 
+  onAIPrompt,
+  onCreateCategory,
+  onDeleteCategory,
+  customCategories = []
+}: SidebarProps) {
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [showTechNews, setShowTechNews] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
   const navigate = useNavigate();
   
   // Sort categories by toolCount (highest first)
@@ -113,6 +134,18 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
     }
   };
 
+  const handleAddCategory = () => {
+    if (newCategoryName.trim()) {
+      onCreateCategory(newCategoryName.trim());
+      setNewCategoryName('');
+      setIsAddingCategory(false);
+      toast({
+        title: 'Category created',
+        description: `"${newCategoryName.trim()}" has been added to your categories.`,
+      });
+    }
+  };
+
   return (
     <>
       {/* Sidebar toggle button - positioned to be always visible */}
@@ -169,6 +202,20 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
             )}
 
             <Button
+              variant={selectedCategory === 'favorites' ? 'secondary' : 'ghost'}
+              className="w-full justify-between h-9 px-2 sm:px-3 font-normal text-sm"
+              onClick={() => handleCategorySelect('favorites')}
+            >
+              <div className="flex items-center min-w-0 overflow-hidden">
+                <Heart className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0 text-sidebar-foreground" />
+                <span className="text-sidebar-foreground truncate">Favorites</span>
+              </div>
+              <Badge variant="secondary" className="bg-sidebar-accent/50 text-sidebar-foreground text-xs flex-shrink-0">
+                {favoritesCount}
+              </Badge>
+            </Button>
+
+            <Button
               variant={selectedCategory === 'all' ? 'secondary' : 'ghost'}
               className="w-full justify-between h-9 px-2 sm:px-3 font-normal text-sm"
               onClick={() => handleCategorySelect('all')}
@@ -211,25 +258,97 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
             </Button>
 
             <div className="py-2">
-              <h3 className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider px-2 sm:px-3 mb-2">
-                Categories
-              </h3>
+              <div className="flex justify-between items-center px-2 sm:px-3 mb-2">
+                <h3 className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
+                  Categories
+                </h3>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 p-0 text-sidebar-foreground/60 hover:text-sidebar-foreground"
+                    onClick={() => setIsAddingCategory(true)}
+                  >
+                    <FolderPlus className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              {isAddingCategory && (
+                <div className="mb-2 px-2 sm:px-3">
+                  <div className="flex items-center gap-1 mb-1">
+                    <Input
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      placeholder="Category name"
+                      className="h-7 text-xs bg-sidebar-accent/30"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleAddCategory();
+                        if (e.key === 'Escape') {
+                          setIsAddingCategory(false);
+                          setNewCategoryName('');
+                        }
+                      }}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex gap-1">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 text-[10px] flex-1 bg-sidebar-accent/20"
+                      onClick={handleAddCategory}
+                    >
+                      <Check className="h-3 w-3 mr-1" /> Add
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 text-[10px] flex-1"
+                      onClick={() => {
+                        setIsAddingCategory(false);
+                        setNewCategoryName('');
+                      }}
+                    >
+                      <X className="h-3 w-3 mr-1" /> Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1">
                 {visibleCategories.map((category) => (
-                  <Button
-                    key={category.id}
-                    variant={selectedCategory === category.name ? 'secondary' : 'ghost'}
-                    className="w-full justify-between h-9 px-2 sm:px-3 font-normal text-sm"
-                    onClick={() => handleCategorySelect(category.name)}
-                  >
-                    <div className="flex items-center min-w-0 overflow-hidden">
-                      {getCategoryIcon(category.name)}
-                      <span className="text-sidebar-foreground truncate ml-1.5 sm:ml-2">{category.name}</span>
-                    </div>
-                    <Badge variant="secondary" className="bg-sidebar-accent/50 text-sidebar-foreground text-xs flex-shrink-0">
-                      {category.toolCount}
-                    </Badge>
-                  </Button>
+                  <div key={category.id} className="relative group">
+                    <Button
+                      variant={selectedCategory === category.name ? 'secondary' : 'ghost'}
+                      className="w-full justify-between h-9 px-2 sm:px-3 font-normal text-sm"
+                      onClick={() => handleCategorySelect(category.name)}
+                    >
+                      <div className="flex items-center min-w-0 overflow-hidden">
+                        {getCategoryIcon(category.name)}
+                        <span className="text-sidebar-foreground truncate ml-1.5 sm:ml-2">{category.name}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <Badge 
+                          variant="secondary" 
+                          className="bg-sidebar-accent/50 text-sidebar-foreground text-xs flex-shrink-0 group-hover:hidden"
+                        >
+                          {category.toolCount}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-transparent"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCategoryToDelete(category.name);
+                          }}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </Button>
+                  </div>
                 ))}
                 
                 {hiddenCategories.length > 0 && (
@@ -289,6 +408,35 @@ export function Sidebar({ categories, selectedCategory, onCategorySelect, pinned
                 Create and manage your quick notes
               </DialogDescription>
               <QuickNotes />
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* Category delete confirmation dialog */}
+        {categoryToDelete && onDeleteCategory && (
+          <Dialog open={!!categoryToDelete} onOpenChange={() => setCategoryToDelete(null)}>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogTitle>Delete Category</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete the category "{categoryToDelete}"? 
+                All tools in this category will be moved to "Other".
+              </DialogDescription>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={() => setCategoryToDelete(null)}>
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => {
+                    if (categoryToDelete && onDeleteCategory) {
+                      onDeleteCategory(categoryToDelete);
+                      setCategoryToDelete(null);
+                    }
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
             </DialogContent>
           </Dialog>
         )}

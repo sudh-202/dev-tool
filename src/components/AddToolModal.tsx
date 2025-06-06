@@ -39,14 +39,17 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
     url: '',
     description: '',
     category: '',
+    categories: [] as string[],
     tags: [] as string[],
     isPinned: false,
+    isFavorite: false,
     email: '',
     apiKey: '',
     notes: '',
     rating: 0,
   });
   const [tagInput, setTagInput] = useState('');
+  const [categoryInput, setCategoryInput] = useState('');
   const [customCategory, setCustomCategory] = useState('');
   const [isAIProcessing, setIsAIProcessing] = useState(false);
   const [processingField, setProcessingField] = useState<string | null>(null);
@@ -63,9 +66,11 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
         name: editingTool.name,
         url: editingTool.url,
         description: editingTool.description || '',
-        category: editingTool.category,
+        category: editingTool.category || '',
+        categories: editingTool.categories || (editingTool.category ? [editingTool.category] : []),
         tags: [...editingTool.tags],
         isPinned: editingTool.isPinned,
+        isFavorite: editingTool.isFavorite || false,
         email: editingTool.email || '',
         apiKey: editingTool.apiKey || '',
         notes: editingTool.notes || '',
@@ -84,8 +89,10 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
         url: '',
         description: '',
         category: '',
+        categories: [],
         tags: [],
         isPinned: false,
+        isFavorite: false,
         email: '',
         apiKey: '',
         notes: '',
@@ -94,6 +101,7 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
       setCustomCategory('');
     }
     setTagInput('');
+    setCategoryInput('');
     setShowApiKey(false);
     setErrors({});
     setFormSubmitted(false);
@@ -112,8 +120,8 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
       newErrors.url = 'Please enter a valid URL (including http:// or https://)';
     }
     
-    if (!formData.category) {
-      newErrors.category = 'Category is required';
+    if (formData.categories.length === 0) {
+      newErrors.categories = 'At least one category is required';
     }
     
     setErrors(newErrors);
@@ -158,6 +166,7 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
       setFormData(prev => ({
         ...prev,
         category: aiSuggestion.category,
+        categories: [...new Set([...prev.categories, ...aiSuggestion.categories])],
         tags: [...new Set([...prev.tags, ...aiSuggestion.tags])]
       }));
     } catch (error) {
@@ -272,22 +281,40 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
     }
   };
 
-  const handleCategoryChange = (value: string) => {
-    if (value === 'custom') {
-      // Don't update category yet, wait for custom input
-      setFormData(prev => ({ ...prev, category: '' }));
-    } else {
-      setFormData(prev => ({ ...prev, category: value }));
-      setCustomCategory('');
+  const handleAddCategory = () => {
+    if (!categoryInput.trim()) return;
+    
+    if (!formData.categories.includes(categoryInput.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        categories: [...prev.categories, categoryInput.trim()]
+      }));
     }
     
-    // Clear error if it exists
-    if (errors.category) {
-      setErrors(prev => {
-        const newErrors = {...prev};
-        delete newErrors.category;
-        return newErrors;
-      });
+    setCategoryInput('');
+  };
+
+  const handleRemoveCategory = (categoryToRemove: string) => {
+    setFormData(prev => ({
+      ...prev,
+      categories: prev.categories.filter(cat => cat !== categoryToRemove)
+    }));
+  };
+
+  const handleCategoryChange = (value: string) => {
+    if (value === 'custom') {
+      // Use custom category input field
+      setFormData(prev => ({
+        ...prev,
+        category: customCategory,
+      }));
+    } else if (value && !formData.categories.includes(value)) {
+      // Add to categories array
+      setFormData(prev => ({
+        ...prev,
+        category: value,
+        categories: [...prev.categories, value]
+      }));
     }
   };
 
@@ -310,24 +337,25 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
     e.preventDefault();
     setFormSubmitted(true);
     
-    const isValid = validateForm();
-    if (!isValid) {
-      // Show error toast
-      toast({
-        title: "Missing required fields",
-        description: "Please fill in all required fields",
-        variant: "destructive"
+    if (validateForm()) {
+      const categoryToUse = formData.category || formData.categories[0] || "Uncategorized";
+      
+      onSave({
+        name: formData.name.trim(),
+        url: formData.url.trim(),
+        description: formData.description.trim() || undefined,
+        category: categoryToUse,
+        categories: formData.categories.length > 0 ? formData.categories : [categoryToUse],
+        tags: formData.tags,
+        isPinned: formData.isPinned,
+        isFavorite: formData.isFavorite,
+        email: formData.email.trim() || undefined,
+        apiKey: formData.apiKey.trim() || undefined,
+        notes: formData.notes.trim() || undefined,
+        rating: formData.rating || undefined,
       });
-      return;
+      onClose();
     }
-
-    onSave({
-      ...formData,
-      rating: formData.rating || 0,
-      usageCount: editingTool?.usageCount || 0,
-      lastUsed: editingTool?.lastUsed,
-    });
-    onClose();
   };
 
   return (
@@ -479,58 +507,69 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="category" className={errors.category ? "text-destructive" : ""}>Category*</Label>
-              <Select
-                value={categories.includes(formData.category) ? formData.category : 'custom'}
-                onValueChange={handleCategoryChange}
-              >
-                <SelectTrigger 
-                  className={errors.category ? "border-destructive text-destructive" : formData.category ? "" : "text-muted-foreground"}
-                  aria-invalid={!!errors.category}
-                >
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="custom">Other (Custom)</SelectItem>
-                </SelectContent>
-              </Select>
-              {categories.includes(formData.category) ? null : (
-                <div className="mt-2">
-                  <Input
-                    value={customCategory}
-                    onChange={handleCustomCategoryChange}
-                    placeholder="Enter custom category"
-                    className={errors.category ? "border-destructive" : ""}
-                  />
-                </div>
-              )}
-              {errors.category && (
-                <p className="text-xs text-destructive flex items-center mt-1">
-                  <AlertCircle className="h-3 w-3 mr-1" />
-                  {errors.category}
-                </p>
-              )}
-            </div>
-            <div className="flex items-end">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAIEnhance}
-                disabled={isAIProcessing || !formData.name || !formData.url}
-                className="h-10"
-              >
-                <Sparkles className="h-4 w-4 mr-1" />
-                {processingField === 'all' ? 'AI...' : 'AI Enhance'}
+          <div className="space-y-2">
+            <Label>Primary Category</Label>
+            <Select 
+              value={formData.category} 
+              onValueChange={handleCategoryChange}
+            >
+              <SelectTrigger className={formSubmitted && errors.categories ? 'border-destructive' : ''}>
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((category) => (
+                  <SelectItem key={category} value={category}>{category}</SelectItem>
+                ))}
+                <SelectItem value="custom">Custom Category</SelectItem>
+              </SelectContent>
+            </Select>
+            {customCategory && (
+              <Input
+                placeholder="Enter custom category"
+                value={customCategory}
+                onChange={handleCustomCategoryChange}
+                className="mt-2"
+              />
+            )}
+            {formSubmitted && errors.categories && (
+              <p className="text-xs text-destructive mt-1">{errors.categories}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Categories</Label>
+            <div className="flex gap-2">
+              <Input
+                value={categoryInput}
+                onChange={(e) => setCategoryInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCategory())}
+                placeholder="Add category and press Enter"
+                className="flex-1"
+              />
+              <Button type="button" onClick={handleAddCategory} size="sm">
+                Add
               </Button>
             </div>
+            {formData.categories.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {formData.categories.map((category) => (
+                  <Badge
+                    key={category}
+                    variant="secondary"
+                    className="text-xs flex items-center gap-1"
+                  >
+                    {category}
+                    <X
+                      className="h-3 w-3 cursor-pointer"
+                      onClick={() => handleRemoveCategory(category)}
+                    />
+                  </Badge>
+                ))}
+              </div>
+            )}
+            {formSubmitted && errors.categories && (
+              <p className="text-xs text-destructive mt-1">{errors.categories}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -642,6 +681,28 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
           
           <div className="text-xs text-muted-foreground">
             * Required fields
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="isPinned"
+              checked={formData.isPinned}
+              onChange={(e) => setFormData({...formData, isPinned: e.target.checked})}
+              className="rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <Label htmlFor="isPinned" className="cursor-pointer">Pin this tool</Label>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="isFavorite"
+              checked={formData.isFavorite}
+              onChange={(e) => setFormData({...formData, isFavorite: e.target.checked})}
+              className="rounded border-gray-300 text-rose-500 focus:ring-rose-500"
+            />
+            <Label htmlFor="isFavorite" className="cursor-pointer">Add to favorites</Label>
           </div>
 
           <DialogFooter>

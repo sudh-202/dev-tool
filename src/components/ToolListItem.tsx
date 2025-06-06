@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Tool } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bookmark, BookmarkCheck, Clock, TrendingUp, Star, ExternalLink, Pencil, Trash2, MoreVertical } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Clock, TrendingUp, Star, ExternalLink, Pencil, Trash2, MoreVertical, Heart } from 'lucide-react';
 import { ToolRating } from './ToolRating';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
@@ -11,10 +11,11 @@ interface ToolListItemProps {
   onEdit: (tool: Tool) => void;
   onDelete: (id: string) => void;
   onTogglePin: (id: string) => void;
+  onToggleFavorite: (id: string) => void;
   onToolClick: (tool: Tool) => void;
 }
 
-export function ToolListItem({ tool, onEdit, onDelete, onTogglePin, onToolClick }: ToolListItemProps) {
+export function ToolListItem({ tool, onEdit, onDelete, onTogglePin, onToggleFavorite, onToolClick }: ToolListItemProps) {
   const [imageError, setImageError] = useState(false);
   
   const getFaviconUrl = (url: string) => {
@@ -55,11 +56,19 @@ export function ToolListItem({ tool, onEdit, onDelete, onTogglePin, onToolClick 
             {tool.isPinned && (
               <BookmarkCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary ml-1 sm:ml-2 flex-shrink-0" />
             )}
+            {tool.isFavorite && (
+              <Heart className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-rose-500 ml-1 sm:ml-2 flex-shrink-0" />
+            )}
           </div>
           
           <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
             <span className="truncate">{new URL(tool.url).hostname}</span>
-            {tool.category && (
+            {tool.categories && tool.categories.length > 0 && (
+              <Badge variant="outline" className="text-xs bg-muted/50 border-0 hidden sm:inline-flex px-1.5 py-0">
+                {tool.categories[0]}
+              </Badge>
+            )}
+            {!tool.categories && tool.category && (
               <Badge variant="outline" className="text-xs bg-muted/50 border-0 hidden sm:inline-flex px-1.5 py-0">
                 {tool.category}
               </Badge>
@@ -98,6 +107,10 @@ export function ToolListItem({ tool, onEdit, onDelete, onTogglePin, onToolClick 
               ) : (
                 <><Bookmark className="h-3.5 w-3.5 mr-2" /> Pin</>
               )}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onToggleFavorite(tool.id)}>
+              <Heart className={`h-3.5 w-3.5 mr-2 ${tool.isFavorite ? "text-rose-500" : ""}`} />
+              {tool.isFavorite ? "Remove from Favorites" : "Add to Favorites"}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onEdit(tool)}>
               <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
@@ -145,6 +158,15 @@ export function ToolListItem({ tool, onEdit, onDelete, onTogglePin, onToolClick 
             className="h-8 px-2"
           >
             <ExternalLink className="h-4 w-4" />
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onToggleFavorite(tool.id)}
+            className="h-8 px-2"
+          >
+            <Heart className={`h-4 w-4 ${tool.isFavorite ? "text-rose-500" : "text-muted-foreground"}`} />
           </Button>
           
           <Button

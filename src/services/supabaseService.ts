@@ -83,8 +83,11 @@ const mapFromSupabase = (tool: SupabaseTool): Tool => {
     description: tool.description || '',
     // Convert string to array if stored as string in some cases, or use empty array as default
     tags: Array.isArray(tool.tags) ? tool.tags : (typeof tool.tags === 'string' ? JSON.parse(tool.tags) : []),
-    category: tool.category,
+    // Handle multiple categories
+    categories: Array.isArray(tool.categories) ? tool.categories : (tool.category ? [tool.category] : []),
+    category: tool.category, // Keep for backward compatibility
     isPinned: tool.is_favorite || false,
+    isFavorite: (tool as any).is_favorite || false, // Add isFavorite field
     favicon: tool.logo_url || undefined,
     createdAt: new Date(tool.created_at),
     updatedAt: new Date(tool.updated_at),
@@ -105,7 +108,7 @@ const mapToSupabaseInsert = (tool: Omit<Tool, 'id' | 'createdAt' | 'updatedAt'>)
     title: tool.name,
     url: tool.url,
     description: tool.description,
-    category: tool.category,
+    category: tool.category || (tool.categories && tool.categories.length > 0 ? tool.categories[0] : undefined),
     is_favorite: tool.isPinned,
     logo_url: tool.favicon,
     rating: tool.rating,
@@ -117,6 +120,8 @@ const mapToSupabaseInsert = (tool: Omit<Tool, 'id' | 'createdAt' | 'updatedAt'>)
   // Cast to any to allow adding custom fields
   const customFields: any = {
     tags: tool.tags,
+    categories: tool.categories || (tool.category ? [tool.category] : []),
+    is_favorite: tool.isFavorite,
     email: tool.email,
     api_key: tool.apiKey,
     notes: tool.notes,
@@ -137,7 +142,7 @@ const mapToSupabaseUpdate = (tool: Tool): TablesInsert<'tools'> & Record<string,
     title: tool.name,
     url: tool.url,
     description: tool.description,
-    category: tool.category,
+    category: tool.category || (tool.categories && tool.categories.length > 0 ? tool.categories[0] : undefined),
     is_favorite: tool.isPinned,
     logo_url: tool.favicon,
     rating: tool.rating,
@@ -148,6 +153,8 @@ const mapToSupabaseUpdate = (tool: Tool): TablesInsert<'tools'> & Record<string,
   // Add any additional fields that may not be in the base schema
   const customFields: Record<string, any> = {
     tags: tool.tags,
+    categories: tool.categories || (tool.category ? [tool.category] : []),
+    is_favorite: tool.isFavorite,
     email: tool.email,
     api_key: tool.apiKey,
     notes: tool.notes,

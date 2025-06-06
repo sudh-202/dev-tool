@@ -35,8 +35,10 @@ const sampleTools: Tool[] = [
     url: 'https://reactjs.org',
     description: 'A JavaScript library for building user interfaces',
     tags: ['frontend', 'javascript', 'ui'],
+    categories: ['Frontend'],
     category: 'Frontend',
     isPinned: true,
+    isFavorite: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   },
@@ -46,8 +48,10 @@ const sampleTools: Tool[] = [
     url: 'https://vercel.com',
     description: 'Deploy web projects with zero configuration',
     tags: ['deployment', 'hosting', 'frontend'],
+    categories: ['DevOps', 'Frontend'],
     category: 'DevOps',
     isPinned: false,
+    isFavorite: true,
     createdAt: new Date(),
     updatedAt: new Date(),
   },
@@ -57,8 +61,10 @@ const sampleTools: Tool[] = [
     url: 'https://figma.com',
     description: 'Collaborative interface design tool',
     tags: ['design', 'ui', 'collaboration'],
+    categories: ['Design'],
     category: 'Design',
     isPinned: true,
+    isFavorite: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   },
@@ -73,6 +79,9 @@ const Index = () => {
     addMultipleTools,
     updateTool,
     togglePin,
+    toggleFavorite,
+    addToolToCategory,
+    removeToolFromCategory,
     removeTool,
     trackToolUsage
   } = useSupabaseTools();
@@ -85,15 +94,28 @@ const Index = () => {
   const [sortBy, setSortBy] = useState<'recent' | 'rating' | 'usage'>('recent');
   const [viewMode, setViewMode] = useLocalStorage<'grid' | 'list'>('view-mode', 'grid');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [customCategories, setCustomCategories] = useLocalStorage<string[]>('custom-categories', []);
+  const [deletedCategories, setDeletedCategories] = useLocalStorage<string[]>('deleted-categories', []);
+
+  const allCategoryNames = useMemo(() => {
+    return [...defaultCategories, ...customCategories].filter(
+      category => !deletedCategories.includes(category) // Filter out deleted categories
+    );
+  }, [customCategories, deletedCategories]);
 
   const categories: Category[] = useMemo(() => {
     const categoryMap = new Map<string, number>();
     
-    defaultCategories.forEach(cat => categoryMap.set(cat, 0));
+    allCategoryNames.forEach(cat => categoryMap.set(cat, 0));
     
     tools.forEach(tool => {
-      const count = categoryMap.get(tool.category) || 0;
-      categoryMap.set(tool.category, count + 1);
+      // Handle compatibility with older data format
+      const toolCategories = tool.categories || (tool.category ? [tool.category] : []);
+      
+      toolCategories.forEach(category => {
+        const count = categoryMap.get(category) || 0;
+        categoryMap.set(category, count + 1);
+      });
     });
 
     return Array.from(categoryMap.entries()).map(([name, toolCount]) => ({
@@ -102,7 +124,7 @@ const Index = () => {
       icon: '📁',
       toolCount,
     }));
-  }, [tools]);
+  }, [tools, customCategories, allCategoryNames]);
 
   // Get all unique tags across tools
   const availableTags = useMemo(() => {
@@ -126,10 +148,16 @@ const Index = () => {
     // Filter by category
     if (selectedCategory === 'pinned') {
       filtered = filtered.filter(tool => tool.isPinned);
+    } else if (selectedCategory === 'favorites') {
+      filtered = filtered.filter(tool => tool.isFavorite);
     } else if (selectedCategory === 'recently-used') {
       filtered = filtered.filter(tool => tool.lastUsed);
     } else if (selectedCategory !== 'all') {
-      filtered = filtered.filter(tool => tool.category === selectedCategory);
+      filtered = filtered.filter(tool => {
+        // Handle compatibility with older data format
+        const toolCategories = tool.categories || (tool.category ? [tool.category] : []);
+        return toolCategories.includes(selectedCategory);
+      });
     }
 
     // Filter by tags if any are selected
@@ -167,9 +195,9 @@ const Index = () => {
     });
   }, [tools, selectedCategory, searchQuery, sortBy, selectedTags]);
 
-  // Group tools by category for "all" and "pinned" views
+  // Group tools by category for "all", "pinned" and "favorites" views
   const groupedTools = useMemo(() => {
-    if (selectedCategory !== 'all' && selectedCategory !== 'pinned') {
+    if (selectedCategory !== 'all' && selectedCategory !== 'pinned' && selectedCategory !== 'favorites') {
       return { [selectedCategory]: filteredTools };
     }
 
@@ -177,10 +205,13 @@ const Index = () => {
     const grouped: Record<string, Tool[]> = {};
     
     filteredTools.forEach(tool => {
-      if (!grouped[tool.category]) {
-        grouped[tool.category] = [];
+      // Handle compatibility with older data format
+      const primaryCategory = tool.categories?.length ? tool.categories[0] : tool.category || 'Uncategorized';
+      
+      if (!grouped[primaryCategory]) {
+        grouped[primaryCategory] = [];
       }
-      grouped[tool.category].push(tool);
+      grouped[primaryCategory].push(tool);
     });
 
     // Sort categories by number of tools (most first)
@@ -198,6 +229,7 @@ const Index = () => {
   }, [filteredTools, selectedCategory]);
 
   const pinnedCount = tools.filter(tool => tool.isPinned).length;
+  const favoritesCount = tools.filter(tool => tool.isFavorite).length;
   const recentlyUsedCount = tools.filter(tool => tool.lastUsed && 
     new Date().getTime() - new Date(tool.lastUsed).getTime() < 7 * 24 * 60 * 60 * 1000
   ).length;
@@ -289,6 +321,23 @@ const Index = () => {
     }
   };
 
+  const handleToggleFavorite = async (id: string) => {
+    try {
+      await toggleFavorite(id);
+      toast({
+        title: "Favorites updated",
+        description: "Tool has been updated in your favorites.",
+      });
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to update favorites. Please try again.",
+        variant: "destructive"
+      });
+      console.error("Failed to toggle favorite:", err);
+    }
+  };
+
   const handleEditTool = (tool: Tool) => {
     setEditingTool(tool);
     setIsAddModalOpen(true);
@@ -343,6 +392,95 @@ const Index = () => {
     // This would require adding an id to the tool card and using scrollIntoView
   };
 
+  // Handle creating a new custom category
+  const handleCreateCategory = (categoryName: string) => {
+    if (categoryName) {
+      // Check if it was previously deleted default category
+      if (defaultCategories.includes(categoryName) && deletedCategories.includes(categoryName)) {
+        // Remove from deleted categories to restore it
+        setDeletedCategories(prev => prev.filter(cat => cat !== categoryName));
+        
+        // Optionally switch to the restored category
+        setSelectedCategory(categoryName);
+        
+        toast({
+          title: "Category restored",
+          description: `"${categoryName}" category has been restored.`,
+        });
+      } 
+      // Check if it's a new custom category
+      else if (!allCategoryNames.includes(categoryName)) {
+        setCustomCategories(prev => [...prev, categoryName]);
+        
+        // Optionally switch to the new category
+        setSelectedCategory(categoryName);
+        
+        toast({
+          title: "Category created",
+          description: `"${categoryName}" has been added to your categories.`,
+        });
+      }
+    }
+  };
+
+  // Handle deleting a category and moving its tools to "Other"
+  const handleDeleteCategory = async (categoryName: string) => {
+    // Don't allow deleting the "Other" category
+    if (categoryName === "Other") {
+      toast({
+        title: "Cannot delete Other category",
+        description: "The 'Other' category cannot be deleted as it's used as a fallback for uncategorized tools.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Find all tools in this category
+      const toolsInCategory = tools.filter(tool => 
+        tool.categories.includes(categoryName)
+      );
+
+      // Update each tool to move from this category to "Other"
+      for (const tool of toolsInCategory) {
+        const updatedCategories = tool.categories
+          .filter(cat => cat !== categoryName)
+          .concat(tool.categories.includes("Other") ? [] : ["Other"]);
+        
+        await updateTool({
+          ...tool, 
+          categories: updatedCategories
+        });
+      }
+
+      // If it's a custom category, remove it from custom categories
+      if (customCategories.includes(categoryName)) {
+        setCustomCategories(prev => prev.filter(cat => cat !== categoryName));
+      } 
+      // If it's a default category, add it to deleted categories
+      else if (defaultCategories.includes(categoryName)) {
+        setDeletedCategories(prev => [...prev, categoryName]);
+      }
+      
+      // If we're currently viewing the deleted category, switch to "all"
+      if (selectedCategory === categoryName) {
+        setSelectedCategory('all');
+      }
+
+      toast({
+        title: "Category deleted",
+        description: `Category "${categoryName}" has been deleted and its tools moved to "Other".`
+      });
+    } catch (err) {
+      toast({
+        title: "Error", 
+        description: "Failed to delete category. Please try again.",
+        variant: "destructive"
+      });
+      console.error("Failed to delete category:", err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex w-full">
       <Sidebar
@@ -358,7 +496,11 @@ const Index = () => {
         selectedCategory={selectedCategory}
         onCategorySelect={setSelectedCategory}
         pinnedCount={pinnedCount}
+        favoritesCount={favoritesCount}
         onAIPrompt={() => setIsAIPromptOpen(true)}
+        onCreateCategory={handleCreateCategory}
+        onDeleteCategory={handleDeleteCategory}
+        customCategories={customCategories}
       />
       
       <div className="flex-1 flex flex-col md:ml-60">
@@ -369,6 +511,7 @@ const Index = () => {
                 <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center md:text-left">
                   {selectedCategory === 'all' ? 'All Tools' : 
                    selectedCategory === 'pinned' ? 'Pinned Tools' : 
+                   selectedCategory === 'favorites' ? 'Favorites' :
                    selectedCategory === 'recently-used' ? 'Recently Used' :
                    selectedCategory}
                 </h2>
@@ -660,6 +803,7 @@ const Index = () => {
                               onEdit={handleEditTool}
                               onDelete={handleDeleteTool}
                               onTogglePin={handleTogglePin}
+                              onToggleFavorite={handleToggleFavorite}
                               onToolClick={handleToolClick}
                             />
                           ))}
@@ -682,6 +826,7 @@ const Index = () => {
                               onEdit={handleEditTool}
                               onDelete={handleDeleteTool}
                               onTogglePin={handleTogglePin}
+                              onToggleFavorite={handleToggleFavorite}
                               onToolClick={handleToolClick}
                             />
                           ))}
@@ -700,7 +845,7 @@ const Index = () => {
         isOpen={isAddModalOpen}
         onClose={handleCloseModal}
         onSave={handleSaveTool}
-        categories={defaultCategories}
+        categories={allCategoryNames}
         editingTool={editingTool}
       />
 

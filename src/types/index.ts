@@ -4,8 +4,10 @@ export interface Tool {
   url: string;
   description?: string;
   tags: string[];
-  category: string;
+  categories: string[];
+  category?: string;
   isPinned: boolean;
+  isFavorite: boolean;
   favicon?: string;
   createdAt: Date;
   updatedAt: Date;

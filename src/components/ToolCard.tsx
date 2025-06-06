@@ -3,7 +3,7 @@ import { Tool } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bookmark, BookmarkCheck, Clock, TrendingUp, ExternalLink, Pencil, Trash2 } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Clock, TrendingUp, ExternalLink, Pencil, Trash2, Heart, HeartOff } from 'lucide-react';
 import { ToolRating } from './ToolRating';
 import { cn } from '@/lib/utils';
 
@@ -12,10 +12,11 @@ interface ToolCardProps {
   onEdit: (tool: Tool) => void;
   onDelete: (id: string) => void;
   onTogglePin: (id: string) => void;
+  onToggleFavorite: (id: string) => void;
   onToolClick: (tool: Tool) => void;
 }
 
-export function ToolCard({ tool, onEdit, onDelete, onTogglePin, onToolClick }: ToolCardProps) {
+export function ToolCard({ tool, onEdit, onDelete, onTogglePin, onToggleFavorite, onToolClick }: ToolCardProps) {
   const [imageError, setImageError] = useState(false);
   
   const getFaviconUrl = (url: string) => {
@@ -58,21 +59,38 @@ export function ToolCard({ tool, onEdit, onDelete, onTogglePin, onToolClick }: T
               </p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onTogglePin(tool.id)}
-            className={cn(
-              "p-0.5 h-auto w-auto", 
-              tool.isPinned ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity"
-            )}
-          >
-            {tool.isPinned ? (
-              <BookmarkCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" />
-            ) : (
-              <Bookmark className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
-            )}
-          </Button>
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onToggleFavorite(tool.id)}
+              className={cn(
+                "p-0.5 h-auto w-auto", 
+                tool.isFavorite ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity"
+              )}
+            >
+              {tool.isFavorite ? (
+                <Heart className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-rose-500" />
+              ) : (
+                <Heart className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onTogglePin(tool.id)}
+              className={cn(
+                "p-0.5 h-auto w-auto", 
+                tool.isPinned ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity"
+              )}
+            >
+              {tool.isPinned ? (
+                <BookmarkCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" />
+              ) : (
+                <Bookmark className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
+              )}
+            </Button>
+          </div>
         </div>
 
         {tool.description && (
