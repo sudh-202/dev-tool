@@ -10,7 +10,9 @@ import {
   createMultipleTools,
   checkSupabaseAvailability,
   addToolToCategory as supabaseAddToolToCategory,
-  checkAndFixCategoriesColumn
+  checkAndFixCategoriesColumn,
+  recoverTools,
+  runToolsDiagnostics
 } from '@/services/supabaseService';
 import { useLocalStorage } from './useLocalStorage';
 import { toast } from '@/hooks/use-toast';
@@ -71,8 +73,29 @@ export function useSupabaseTools() {
           await checkAndFixCategoriesColumn();
         }
         
-        const supabaseTools = await getAllTools();
-        console.log("Tools loaded from Supabase:", supabaseTools);
+        // Try to get tools for current user
+        let supabaseTools = await getAllTools();
+        console.log(`Initially found ${supabaseTools.length} tools for current user`);
+        
+        // If no tools found, try to recover tools from previous sessions
+        if (supabaseTools.length === 0 && isSupabaseConnected) {
+          console.log("No tools found for current user, attempting to recover tools from previous sessions...");
+          const recovered = await recoverTools();
+          if (recovered) {
+            console.log("Successfully recovered tools from previous sessions, reloading...");
+            supabaseTools = await getAllTools();
+            console.log(`After recovery, found ${supabaseTools.length} tools`);
+            
+            // Show recovery message
+            toast({
+              title: "Tools recovered",
+              description: "Your previous tools have been successfully restored.",
+              variant: "default"
+            });
+          }
+        }
+        
+        console.log("Final tools loaded from Supabase:", supabaseTools);
         
         setTools(supabaseTools);
         // Update the cache with the latest data
@@ -510,6 +533,24 @@ export function useSupabaseTools() {
         setError(err instanceof Error ? err : new Error('Failed to refresh tools'));
         setLoading(false);
         throw err;
+      }
+    },
+    runDiagnostics: async () => {
+      try {
+        await runToolsDiagnostics(); 
+        toast({
+          title: "Diagnostics complete",
+          description: "Check the browser console (F12) for detailed information.",
+        });
+        return true;
+      } catch (err) {
+        console.error('Failed to run diagnostics:', err);
+        toast({
+          title: "Diagnostics failed",
+          description: "Check the browser console for details.",
+          variant: "destructive"
+        });
+        return false;
       }
     }
   };

@@ -16,6 +16,11 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Sparkles, Star, Clock, TrendingUp, Grid, List, Loader2, X } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  recoverTools,
+  checkAndFixCategoriesColumn
+} from '@/services/supabaseService';
 
 const defaultCategories = [
   'Frontend',
@@ -83,7 +88,9 @@ const Index = () => {
     addToolToCategory,
     removeToolFromCategory,
     removeTool,
-    trackToolUsage
+    trackToolUsage,
+    refreshTools,
+    runDiagnostics
   } = useSupabaseTools();
 
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -721,6 +728,43 @@ const Index = () => {
                 onNavigateToTool={handleNavigateToTool}
                 tools={tools}
               />
+
+              {/* Debug and Recovery utilities */}
+              <div className="mt-2 mb-4 flex justify-end">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-xs"
+                    >
+                      Utilities
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56">
+                    <DropdownMenuItem 
+                      onClick={async () => {
+                        const recovered = await recoverTools();
+                        if (recovered) {
+                          refreshTools();
+                        }
+                      }}
+                    >
+                      Recover Missing Tools
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => runDiagnostics()}
+                    >
+                      Run Database Diagnostics
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => checkAndFixCategoriesColumn()}
+                    >
+                      Fix Categories Format
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
 
               {/* Tags filter */}
               <div className="mb-4">

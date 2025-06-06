@@ -13,7 +13,7 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { DatabaseSetupHelper } from "./components/DatabaseSetupHelper";
 import { getAllTools } from "./services/supabaseService";
-import { getUserId } from "./services/authService";
+import { getUserId, migrateAnonymousTools } from "./services/authService";
 import { checkMigrationNeeded } from "./utils/migrationUtils";
 import { Button } from "@/components/ui/button";
 import { AIProviderProvider } from "@/contexts/AIProviderContext";
@@ -86,6 +86,21 @@ const App = () => {
             title: "Connected to Supabase",
             description: "Database connection established successfully.",
           });
+          
+          // Try to migrate any tools created with the old 'anonymous' user ID
+          try {
+            console.log("Checking for tools to migrate from anonymous user...");
+            const migratedTools = await migrateAnonymousTools();
+            if (migratedTools) {
+              console.log("Successfully migrated tools from anonymous user ID");
+              toast({
+                title: "Tools Recovered",
+                description: "Previously created tools have been recovered.",
+              });
+            }
+          } catch (migrationError) {
+            console.error("Error during tool migration:", migrationError);
+          }
         }
       } catch (error) {
         console.error("Error testing Supabase connection:", error);

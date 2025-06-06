@@ -802,4 +802,208 @@ export const checkAndFixCategoriesColumn = async (): Promise<boolean> => {
     console.error('Exception checking/fixing categories column:', error);
     return false;
   }
+};
+
+// Recover tools from a possible previous session or ID
+export const recoverTools = async (): Promise<boolean> => {
+  try {
+    console.log('Looking for tools from previous sessions...');
+    
+    // Get the current user ID
+    const currentUserId = getUserId();
+    console.log('Current user ID:', currentUserId);
+    
+    // Check if we have stored previous user IDs
+    const previousIds = JSON.parse(localStorage.getItem('dev-dashboard-previous-user-ids') || '[]');
+    console.log('Previous user IDs:', previousIds);
+    
+    // Add current anonymous ID to previous IDs if not there already
+    const anonymousId = localStorage.getItem('dev-dashboard-anonymous-id');
+    if (anonymousId && !previousIds.includes(anonymousId) && anonymousId !== currentUserId) {
+      previousIds.push(anonymousId);
+      localStorage.setItem('dev-dashboard-previous-user-ids', JSON.stringify(previousIds));
+      console.log('Added anonymous ID to previous IDs:', anonymousId);
+    }
+    
+    // Check if we have any tools for the current user
+    const { data: currentTools, error: currentError } = await supabase
+      .from('tools')
+      .select('*')
+      .eq('user_id', currentUserId);
+      
+    if (currentError) {
+      console.error('Error checking current user tools:', currentError);
+      return false;
+    }
+    
+    // If we already have tools for the current user, no need to recover
+    if (currentTools && currentTools.length > 0) {
+      console.log(`Found ${currentTools.length} tools for current user ID, no recovery needed.`);
+      return false;
+    }
+    
+    console.log('No tools found for current user ID, checking previous IDs...');
+    
+    // Check if we have any tools in localStorage
+    const localTools = getLocalTools();
+    if (localTools.length > 0) {
+      console.log(`Found ${localTools.length} tools in localStorage, migrating to current user ID...`);
+      
+      // Map tools to current user ID
+      for (const tool of localTools) {
+        const supabaseTool = mapToSupabaseInsert({
+          ...tool,
+          id: undefined,
+          createdAt: undefined,
+          updatedAt: undefined
+        });
+        
+        const { error } = await supabase
+          .from('tools')
+          .insert(supabaseTool);
+          
+        if (error) {
+          console.error('Error migrating localStorage tool:', error);
+        }
+      }
+      
+      return true;
+    }
+    
+    // Check if we have tools from previous user IDs
+    for (const prevId of previousIds) {
+      console.log(`Checking for tools with previous user ID: ${prevId}`);
+      
+      const { data: prevTools, error: prevError } = await supabase
+        .from('tools')
+        .select('*')
+        .eq('user_id', prevId);
+        
+      if (prevError) {
+        console.error(`Error fetching tools for previous ID ${prevId}:`, prevError);
+        continue;
+      }
+      
+      if (prevTools && prevTools.length > 0) {
+        console.log(`Found ${prevTools.length} tools from previous user ID ${prevId}, migrating...`);
+        
+        // Migrate tools to current user ID
+        for (const prevTool of prevTools) {
+          const tool = mapFromSupabase(prevTool);
+          const supabaseTool = mapToSupabaseInsert({
+            ...tool,
+            id: undefined,
+            createdAt: undefined,
+            updatedAt: undefined
+          });
+          
+          const { error: insertError } = await supabase
+            .from('tools')
+            .insert(supabaseTool);
+            
+          if (insertError) {
+            console.error('Error migrating tool from previous user:', insertError);
+          }
+        }
+        
+        return true;
+      }
+    }
+    
+    console.log('No tools found from previous sessions.');
+    return false;
+    
+  } catch (error) {
+    console.error('Error in recoverTools:', error);
+    return false;
+  }
+};
+
+// Run diagnostics on tools table
+export const runToolsDiagnostics = async (): Promise<void> => {
+  console.log('==== Running tools table diagnostics ====');
+  
+  try {
+    // Check if table exists
+    console.log('Checking if tools table exists...');
+    const { error: tableError } = await supabase
+      .from('tools')
+      .select('count(*)')
+      .limit(1);
+      
+    if (tableError) {
+      console.error('Error accessing tools table:', tableError);
+      console.log('The tools table may not exist or you may not have access to it.');
+      return;
+    }
+    
+    console.log('Tools table exists and is accessible.');
+    
+    // Check column types by querying a sample row
+    const { data: sampleRow, error: sampleError } = await supabase
+      .from('tools')
+      .select('*')
+      .limit(1)
+      .single();
+      
+    if (sampleError) {
+      console.error('Error getting sample row:', sampleError);
+      return;
+    }
+    
+    console.log('Sample row from tools table:', sampleRow);
+    
+    // Log column types
+    console.log('Column types:');
+    for (const [column, value] of Object.entries(sampleRow)) {
+      console.log(`  - ${column}: ${value === null ? 'null' : typeof value}`);
+    }
+    
+    // Check total number of tools
+    const { data: countData, error: countError } = await supabase
+      .from('tools')
+      .select('count(*)', { count: 'exact' });
+      
+    if (countError) {
+      console.error('Error counting tools:', countError);
+      return;
+    }
+    
+    console.log(`Total tools in database: ${countData[0].count}`);
+    
+    // Check tools by user
+    const { data: userTools, error: userError } = await supabase
+      .from('tools')
+      .select('user_id, count(*)')
+      .group('user_id');
+      
+    if (userError) {
+      console.error('Error getting tools by user:', userError);
+      return;
+    }
+    
+    console.log('Tools by user:');
+    userTools.forEach(row => {
+      console.log(`  - User ${row.user_id}: ${row.count} tools`);
+    });
+    
+    // Check current user's tools
+    const currentUserId = getUserId();
+    const { data: currentUserTools, error: currentUserError } = await supabase
+      .from('tools')
+      .select('count(*)')
+      .eq('user_id', currentUserId);
+      
+    if (currentUserError) {
+      console.error('Error getting current user tools:', currentUserError);
+      return;
+    }
+    
+    console.log(`Current user (${currentUserId}) has ${currentUserTools[0].count} tools`);
+    
+    console.log('==== Diagnostics complete ====');
+    
+  } catch (error) {
+    console.error('Error running tools diagnostics:', error);
+  }
 }; 

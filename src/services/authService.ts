@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { v4 as uuidv4 } from 'uuid';
 
 export const getCurrentUser = async () => {
   const { data, error } = await supabase.auth.getSession();
@@ -28,9 +29,17 @@ export const getUserId = (): string => {
     console.error('Error parsing stored session:', error);
   }
   
-  // Fallback to anonymous ID if no user is logged in
-  console.log('No user ID found, using anonymous ID');
-  return 'anonymous';
+  // If no authenticated user, use a persistent device ID instead of 'anonymous'
+  let deviceId = localStorage.getItem('dev-dashboard-device-id');
+  if (!deviceId) {
+    deviceId = uuidv4();
+    localStorage.setItem('dev-dashboard-device-id', deviceId);
+    console.log('Created new device ID:', deviceId);
+  } else {
+    console.log('Using existing device ID:', deviceId);
+  }
+  
+  return deviceId;
 };
 
 export const isLoggedIn = async (): Promise<boolean> => {
@@ -88,4 +97,68 @@ export const logout = async () => {
   }
   
   console.log('Logout successful');
+};
+
+// Migrate tools from 'anonymous' user ID to current device ID
+export const migrateAnonymousTools = async (): Promise<boolean> => {
+  try {
+    console.log('Checking for tools with anonymous user ID...');
+    
+    // Get the current user ID (should be device ID if not logged in)
+    const currentUserId = getUserId();
+    
+    // Skip if current ID is 'anonymous' (which shouldn't happen now)
+    if (currentUserId === 'anonymous') {
+      console.log('Current user ID is anonymous, skipping migration');
+      return false;
+    }
+    
+    // Check if we have any tools with 'anonymous' user ID
+    const { data: anonymousTools, error: queryError } = await supabase
+      .from('tools')
+      .select('*')
+      .eq('user_id', 'anonymous');
+      
+    if (queryError) {
+      console.error('Error querying anonymous tools:', queryError);
+      return false;
+    }
+    
+    if (!anonymousTools || anonymousTools.length === 0) {
+      console.log('No tools found with anonymous user ID');
+      return false;
+    }
+    
+    console.log(`Found ${anonymousTools.length} tools with anonymous user ID, migrating...`);
+    
+    // For each tool, clone it with the current user ID
+    let successCount = 0;
+    for (const tool of anonymousTools) {
+      // Create a new tool with current user ID
+      const { error: insertError } = await supabase
+        .from('tools')
+        .insert({
+          ...tool,
+          id: undefined, // Let Supabase generate a new ID
+          user_id: currentUserId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+        
+      if (insertError) {
+        console.error('Error migrating anonymous tool:', insertError);
+      } else {
+        successCount++;
+      }
+    }
+    
+    console.log(`Successfully migrated ${successCount} out of ${anonymousTools.length} tools`);
+    
+    // If any were successfully migrated, return true
+    return successCount > 0;
+    
+  } catch (error) {
+    console.error('Error migrating anonymous tools:', error);
+    return false;
+  }
 }; 
