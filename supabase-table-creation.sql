@@ -51,9 +51,3 @@ CREATE INDEX IF NOT EXISTS tools_user_id_idx ON public.tools (user_id);
 CREATE INDEX IF NOT EXISTS tools_category_idx ON public.tools (category);
 CREATE INDEX IF NOT EXISTS tools_is_favorite_idx ON public.tools (is_favorite);
 
--- Sample tool insertion (optional)
-INSERT INTO public.tools (title, url, description, category, user_id, tags) 
-VALUES 
-('GitHub', 'https://github.com', 'Collaborative code hosting platform', 'Development', 'anonymous', ARRAY['git', 'code', 'repository']),
-('VS Code', 'https://code.visualstudio.com', 'Popular code editor', 'Development', 'anonymous', ARRAY['editor', 'ide', 'coding']),
-('Figma', 'https://figma.com', 'Collaborative design tool', 'Design', 'anonymous', ARRAY['design', 'ui', 'ux']); 
