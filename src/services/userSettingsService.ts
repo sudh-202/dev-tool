@@ -5,8 +5,17 @@ export interface UserSettings {
   id?: string;
   user_id: string;
   openai_api_key?: string;
+  openai7_api_key?: string;
   gemini_api_key?: string;
   anthropic_api_key?: string;
+  anthropicclaude_api_key?: string;
+  groq_api_key?: string;
+  stabilityai_api_key?: string;
+  replicate_api_key?: string;
+  openrouter_api_key?: string;
+  huggingface_api_key?: string;
+  googleai_api_key?: string;
+  deepseek_api_key?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -103,7 +112,7 @@ export const saveUserSettings = async (settings: Partial<UserSettings>): Promise
 /**
  * Update a specific API key
  */
-export const updateApiKey = async (provider: 'openai' | 'gemini' | 'anthropic', apiKey: string): Promise<boolean> => {
+export const updateApiKey = async (provider: 'openai' | 'openai7' | 'gemini' | 'anthropic' | 'anthropicclaude' | 'groq' | 'stabilityai' | 'replicate' | 'openrouter' | 'huggingface' | 'googleai' | 'deepseek', apiKey: string): Promise<boolean> => {
   try {
     const userId = getUserId();
     
@@ -126,7 +135,7 @@ export const updateApiKey = async (provider: 'openai' | 'gemini' | 'anthropic', 
 /**
  * Delete a specific API key
  */
-export const deleteApiKey = async (provider: 'openai' | 'gemini' | 'anthropic'): Promise<boolean> => {
+export const deleteApiKey = async (provider: 'openai' | 'openai7' | 'gemini' | 'anthropic' | 'anthropicclaude' | 'groq' | 'stabilityai' | 'replicate' | 'openrouter' | 'huggingface' | 'googleai' | 'deepseek'): Promise<boolean> => {
   try {
     const userId = getUserId();
     

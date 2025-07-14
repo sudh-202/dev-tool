@@ -29,9 +29,18 @@ import { getUserSettings } from './userSettingsService';
 // Initialize API keys as empty, they will be loaded from user settings
 let GEMINI_API_KEY = '';
 let OPENAI_API_KEY = '';
+let OPENAI7_API_KEY = '';
 let ANTHROPIC_API_KEY = '';
+let ANTHROPICCLAUDE_API_KEY = '';
+let GROQ_API_KEY = '';
+let STABILITYAI_API_KEY = '';
+let REPLICATE_API_KEY = '';
+let OPENROUTER_API_KEY = '';
+let HUGGINGFACE_API_KEY = '';
+let GOOGLEAI_API_KEY = '';
+let DEEPSEEK_API_KEY = '';
 
-export type AIProvider = 'gemini' | 'openai' | 'anthropic';
+export type AIProvider = 'gemini' | 'openai' | 'anthropic' | 'groq' | 'stabilityai' | 'replicate' | 'anthropicclaude' | 'openai7' | 'openrouter' | 'huggingface' | 'googleai' | 'deepseek';
 
 // Function to load API keys from user settings
 export async function loadApiKeys(): Promise<void> {
@@ -47,16 +56,61 @@ export async function loadApiKeys(): Promise<void> {
       if (userSettings.openai_api_key) {
         OPENAI_API_KEY = userSettings.openai_api_key;
       }
+
+      if (userSettings.openai7_api_key) {
+        OPENAI7_API_KEY = userSettings.openai7_api_key;
+      }
       
       if (userSettings.anthropic_api_key) {
         ANTHROPIC_API_KEY = userSettings.anthropic_api_key;
+      }
+
+      if (userSettings.anthropicclaude_api_key) {
+        ANTHROPICCLAUDE_API_KEY = userSettings.anthropicclaude_api_key;
+      }
+
+      if (userSettings.groq_api_key) {
+        GROQ_API_KEY = userSettings.groq_api_key;
+      }
+
+      if (userSettings.stabilityai_api_key) {
+        STABILITYAI_API_KEY = userSettings.stabilityai_api_key;
+      }
+
+      if (userSettings.replicate_api_key) {
+        REPLICATE_API_KEY = userSettings.replicate_api_key;
+      }
+
+      if (userSettings.openrouter_api_key) {
+        OPENROUTER_API_KEY = userSettings.openrouter_api_key;
+      }
+
+      if (userSettings.huggingface_api_key) {
+        HUGGINGFACE_API_KEY = userSettings.huggingface_api_key;
+      }
+
+      if (userSettings.googleai_api_key) {
+        GOOGLEAI_API_KEY = userSettings.googleai_api_key;
+      }
+
+      if (userSettings.deepseek_api_key) {
+        DEEPSEEK_API_KEY = userSettings.deepseek_api_key;
       }
     }
     
     // Log API key status for debugging
     console.log(`Gemini API Key status: ${GEMINI_API_KEY ? 'Available' : 'Missing'}`);
     console.log(`OpenAI API Key status: ${OPENAI_API_KEY ? 'Available' : 'Missing'}`);
+    console.log(`OpenAI GPT-3.5 API Key status: ${OPENAI7_API_KEY ? 'Available' : 'Missing'}`);
     console.log(`Anthropic API Key status: ${ANTHROPIC_API_KEY ? 'Available' : 'Missing'}`);
+    console.log(`Claude 3 API Key status: ${ANTHROPICCLAUDE_API_KEY ? 'Available' : 'Missing'}`);
+    console.log(`Groq API Key status: ${GROQ_API_KEY ? 'Available' : 'Missing'}`);
+    console.log(`StabilityAI API Key status: ${STABILITYAI_API_KEY ? 'Available' : 'Missing'}`);
+    console.log(`Replicate API Key status: ${REPLICATE_API_KEY ? 'Available' : 'Missing'}`);
+    console.log(`OpenRouter API Key status: ${OPENROUTER_API_KEY ? 'Available' : 'Missing'}`);
+    console.log(`HuggingFace API Key status: ${HUGGINGFACE_API_KEY ? 'Available' : 'Missing'}`);
+    console.log(`Google AI API Key status: ${GOOGLEAI_API_KEY ? 'Available' : 'Missing'}`);
+    console.log(`DeepSeek API Key status: ${DEEPSEEK_API_KEY ? 'Available' : 'Missing'}`);
   } catch (error) {
     console.error('Error loading API keys from user settings:', error);
   }
@@ -79,9 +133,45 @@ export async function getAvailableAIProviders(): Promise<{ id: AIProvider; name:
   if (OPENAI_API_KEY) {
     providers.push({ id: 'openai', name: 'OpenAI (GPT-4)' });
   }
+
+  if (OPENAI7_API_KEY) {
+    providers.push({ id: 'openai7', name: 'OpenAI (GPT-3.5)' });
+  }
   
   if (ANTHROPIC_API_KEY) {
     providers.push({ id: 'anthropic', name: 'Claude' });
+  }
+
+  if (ANTHROPICCLAUDE_API_KEY) {
+    providers.push({ id: 'anthropicclaude', name: 'Claude 3' });
+  }
+
+  if (GROQ_API_KEY) {
+    providers.push({ id: 'groq', name: 'Groq' });
+  }
+
+  if (STABILITYAI_API_KEY) {
+    providers.push({ id: 'stabilityai', name: 'StabilityAI' });
+  }
+
+  if (REPLICATE_API_KEY) {
+    providers.push({ id: 'replicate', name: 'Replicate' });
+  }
+
+  if (OPENROUTER_API_KEY) {
+    providers.push({ id: 'openrouter', name: 'OpenRouter' });
+  }
+
+  if (HUGGINGFACE_API_KEY) {
+    providers.push({ id: 'huggingface', name: 'HuggingFace' });
+  }
+
+  if (GOOGLEAI_API_KEY) {
+    providers.push({ id: 'googleai', name: 'Google AI' });
+  }
+
+  if (DEEPSEEK_API_KEY) {
+    providers.push({ id: 'deepseek', name: 'DeepSeek' });
   }
   
   return providers;
@@ -93,8 +183,17 @@ export const getDefaultProvider = async (): Promise<AIProvider> => {
   await loadApiKeys();
   
   if (OPENAI_API_KEY) return 'openai';
+  if (OPENAI7_API_KEY) return 'openai7';
   if (GEMINI_API_KEY) return 'gemini';
   if (ANTHROPIC_API_KEY) return 'anthropic';
+  if (ANTHROPICCLAUDE_API_KEY) return 'anthropicclaude';
+  if (GROQ_API_KEY) return 'groq';
+  if (STABILITYAI_API_KEY) return 'stabilityai';
+  if (REPLICATE_API_KEY) return 'replicate';
+  if (OPENROUTER_API_KEY) return 'openrouter';
+  if (HUGGINGFACE_API_KEY) return 'huggingface';
+  if (GOOGLEAI_API_KEY) return 'googleai';
+  if (DEEPSEEK_API_KEY) return 'deepseek';
   return 'gemini'; // Fallback
 };
 

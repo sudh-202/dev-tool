@@ -32,8 +32,17 @@ export function AIModelSelector({ variant = 'default' }: AIModelSelectorProps) {
   const getProviderDisplayName = (providerId: string) => {
     switch(providerId) {
       case 'openai': return 'OpenAI (GPT-4)';
+      case 'openai7': return 'OpenAI (GPT-3.5)';
       case 'gemini': return 'Google Gemini';
       case 'anthropic': return 'Anthropic Claude';
+      case 'anthropicclaude': return 'Claude 3';
+      case 'groq': return 'Groq';
+      case 'stabilityai': return 'StabilityAI';
+      case 'replicate': return 'Replicate';
+      case 'openrouter': return 'OpenRouter';
+      case 'huggingface': return 'HuggingFace';
+      case 'googleai': return 'Google AI';
+      case 'deepseek': return 'DeepSeek';
       default: return providerId;
     }
   };
@@ -41,8 +50,17 @@ export function AIModelSelector({ variant = 'default' }: AIModelSelectorProps) {
   const getProviderBadgeColor = (providerId: string) => {
     switch(providerId) {
       case 'openai': return 'bg-green-500/10 text-green-500 hover:bg-green-500/20';
+      case 'openai7': return 'bg-green-300/10 text-green-300 hover:bg-green-300/20';
       case 'gemini': return 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20';
       case 'anthropic': return 'bg-purple-500/10 text-purple-500 hover:bg-purple-500/20';
+      case 'anthropicclaude': return 'bg-purple-700/10 text-purple-700 hover:bg-purple-700/20';
+      case 'groq': return 'bg-red-500/10 text-red-500 hover:bg-red-500/20';
+      case 'stabilityai': return 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20';
+      case 'replicate': return 'bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20';
+      case 'openrouter': return 'bg-orange-500/10 text-orange-500 hover:bg-orange-500/20';
+      case 'huggingface': return 'bg-pink-500/10 text-pink-500 hover:bg-pink-500/20';
+      case 'googleai': return 'bg-cyan-500/10 text-cyan-500 hover:bg-cyan-500/20';
+      case 'deepseek': return 'bg-teal-500/10 text-teal-500 hover:bg-teal-500/20';
       default: return '';
     }
   };
@@ -98,8 +116,17 @@ export function AIModelSelector({ variant = 'default' }: AIModelSelectorProps) {
                 className={`text-[10px] ${getProviderBadgeColor(provider.id)}`}
               >
                 {provider.id === 'openai' ? 'Best Quality' : 
+                 provider.id === 'openai7' ? 'Fast' :
                  provider.id === 'gemini' ? 'Balanced' : 
-                 provider.id === 'anthropic' ? 'Creative' : ''}
+                 provider.id === 'anthropic' ? 'Creative' :
+                 provider.id === 'anthropicclaude' ? 'Advanced' :
+                 provider.id === 'groq' ? 'Fast' :
+                 provider.id === 'stabilityai' ? 'Stable' :
+                 provider.id === 'replicate' ? 'Flexible' :
+                 provider.id === 'openrouter' ? 'Router' :
+                 provider.id === 'huggingface' ? 'Open Source' :
+                 provider.id === 'googleai' ? 'Google' :
+                 provider.id === 'deepseek' ? 'Deep Learning' : ''}
               </Badge>
             </DropdownMenuItem>
           ))
