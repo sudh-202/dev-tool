@@ -277,7 +277,6 @@ export async function searchTools(query: string, provider: AIProvider = 'gemini'
       console.log(`Selected AI provider ${provider} not available. Using ${defaultProvider} instead.`);
       provider = defaultProvider;
     }
-    
     // Double-check that the provider we're about to use has an API key
     let hasApiKey = false;
     switch (provider) {
