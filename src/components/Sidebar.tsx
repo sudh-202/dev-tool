@@ -28,7 +28,8 @@ import {
   LogOut,
   Heart,
   Check,
-  FolderPlus
+  FolderPlus,
+  Settings
 } from 'lucide-react';
 import { QuickNotes } from './QuickNotes';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -383,8 +384,21 @@ export function Sidebar({
           <AIModelSelector variant="sidebar" />
         </div>
 
-        {/* Logout button - fixed at bottom */}
-        <div className="p-3 sm:p-4 border-t border-sidebar-border mt-auto shrink-0">
+        {/* Settings and Logout buttons - fixed at bottom */}
+        <div className="p-3 sm:p-4 border-t border-sidebar-border mt-auto shrink-0 space-y-2">
+          <Button
+            variant="ghost"
+            className="w-full justify-start h-9 px-2 sm:px-3 font-normal text-sm"
+            onClick={() => {
+              navigate('/settings');
+              if (window.innerWidth < 768) {
+                setIsMobileOpen(false);
+              }
+            }}
+          >
+            <Settings className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0 text-sidebar-foreground" />
+            <span className="text-sidebar-foreground truncate">Settings</span>
+          </Button>
           <Button
             variant="ghost"
             className="w-full justify-start h-9 px-2 sm:px-3 font-normal text-sm"

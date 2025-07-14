@@ -21,20 +21,55 @@ export interface AIFieldContent {
 // Import toast
 import { toast } from '@/hooks/use-toast';
 
+// Import user settings service
+import { getUserSettings } from './userSettingsService';
+
 // API key configuration
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyAp3Thg9Y9ZcGcQsmtqzshmqrB3EyFssbs';
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
-const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
+// Fallback to environment variables if user settings are not available
+// Initialize API keys as empty, they will be loaded from user settings
+let GEMINI_API_KEY = '';
+let OPENAI_API_KEY = '';
+let ANTHROPIC_API_KEY = '';
 
 export type AIProvider = 'gemini' | 'openai' | 'anthropic';
 
-// Log API key status for debugging
-console.log(`Gemini API Key status: ${GEMINI_API_KEY ? 'Available' : 'Missing'}`);
-console.log(`OpenAI API Key status: ${OPENAI_API_KEY ? 'Available' : 'Missing'}`);
-console.log(`Anthropic API Key status: ${ANTHROPIC_API_KEY ? 'Available' : 'Missing'}`);
+// Function to load API keys from user settings
+export async function loadApiKeys(): Promise<void> {
+  try {
+    const userSettings = await getUserSettings();
+    
+    if (userSettings) {
+      // Override environment variables with user settings if available
+      if (userSettings.gemini_api_key) {
+        GEMINI_API_KEY = userSettings.gemini_api_key;
+      }
+      
+      if (userSettings.openai_api_key) {
+        OPENAI_API_KEY = userSettings.openai_api_key;
+      }
+      
+      if (userSettings.anthropic_api_key) {
+        ANTHROPIC_API_KEY = userSettings.anthropic_api_key;
+      }
+    }
+    
+    // Log API key status for debugging
+    console.log(`Gemini API Key status: ${GEMINI_API_KEY ? 'Available' : 'Missing'}`);
+    console.log(`OpenAI API Key status: ${OPENAI_API_KEY ? 'Available' : 'Missing'}`);
+    console.log(`Anthropic API Key status: ${ANTHROPIC_API_KEY ? 'Available' : 'Missing'}`);
+  } catch (error) {
+    console.error('Error loading API keys from user settings:', error);
+  }
+}
+
+// Call loadApiKeys on module initialization
+loadApiKeys();
 
 // Function to get available AI providers
-export function getAvailableAIProviders(): { id: AIProvider; name: string }[] {
+export async function getAvailableAIProviders(): Promise<{ id: AIProvider; name: string }[]> {
+  // Ensure API keys are loaded
+  await loadApiKeys();
+  
   const providers = [];
   
   if (GEMINI_API_KEY) {
@@ -53,15 +88,21 @@ export function getAvailableAIProviders(): { id: AIProvider; name: string }[] {
 }
 
 // Default provider selection
-export const getDefaultProvider = (): AIProvider => {
+export const getDefaultProvider = async (): Promise<AIProvider> => {
+  // Ensure API keys are loaded
+  await loadApiKeys();
+  
   if (OPENAI_API_KEY) return 'openai';
   if (GEMINI_API_KEY) return 'gemini';
   if (ANTHROPIC_API_KEY) return 'anthropic';
   return 'gemini'; // Fallback
 };
 
-export async function generateToolsFromPrompt(prompt: string, toolCount: number = 5): Promise<AIResponse> {
+export async function generateToolsFromPrompt(prompt: string, toolCount: number = 5, provider: AIProvider = 'gemini'): Promise<AIResponse> {
   console.log(`Starting tool generation with prompt: "${prompt}" and count: ${toolCount}`);
+  
+  // Ensure API keys are loaded before proceeding
+  await loadApiKeys();
   
   const systemPrompt = `You are a helpful AI that generates developer tool recommendations based on user prompts. 
   
@@ -87,53 +128,44 @@ Example response format:
 
 Only respond with valid JSON. Ensure all URLs are real and working.`;
 
-  if (!GEMINI_API_KEY) {
-    console.error('Gemini API key is not set');
-    throw new Error('Gemini API key is missing. Please check your environment variables.');
+  // Check if the selected provider is available
+  const availableProviders = await getAvailableAIProviders();
+  const providerExists = availableProviders.some(p => p.id === provider);
+  
+  // Use the default provider if the specified one is not available
+  if (!providerExists) {
+    provider = await getDefaultProvider();
+    console.log(`Selected AI provider not available. Using ${provider} instead.`);
+    toast.warning(`Selected AI provider not available. Using ${provider} instead.`);
   }
 
   try {
-    console.log('Making API request to Gemini...');
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `${systemPrompt}\n\nUser prompt: "${prompt}"`
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 2048,
-        }
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      console.error('API error response:', errorData);
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log('Raw API response:', JSON.stringify(data).slice(0, 200) + '...');
+    console.log(`Making API request to ${provider}...`);
+    let responseText = '';
+    const fullPrompt = `${systemPrompt}\n\nUser prompt: "${prompt}"`;
     
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
-      console.error('Unexpected API response structure:', data);
-      throw new Error('Invalid response from Gemini API');
+    // Use the appropriate provider-specific function
+    switch (provider) {
+      case 'openai':
+        responseText = await generateWithOpenAI(fullPrompt);
+        break;
+      case 'anthropic':
+        responseText = await generateWithAnthropic(fullPrompt);
+        break;
+      case 'gemini':
+      default:
+        responseText = await generateWithGemini(fullPrompt);
+        break;
     }
-    
-    const text = data.candidates[0].content.parts[0].text;
     
     // Clean the response to extract JSON
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.error('No JSON found in response:', text);
+      console.error('No JSON found in response:', responseText);
       throw new Error('No valid JSON found in response');
     }
+
+    // Process the extracted JSON
 
     try {
       const jsonText = jsonMatch[0];
@@ -217,7 +249,10 @@ export async function categorizeAndTagTool(
   return { category: 'Other', tags: [] };
 }
 
-export async function searchTools(query: string): Promise<AIGeneratedTool[]> {
+export async function searchTools(query: string, provider: AIProvider = 'gemini'): Promise<AIGeneratedTool[]> {
+  // Ensure API keys are loaded before proceeding
+  await loadApiKeys();
+  
   const prompt = `Search for developer tools related to: "${query}".
   
   Return 5 relevant tools as a JSON array of objects with the following properties:
@@ -230,44 +265,71 @@ export async function searchTools(query: string): Promise<AIGeneratedTool[]> {
   Return only the JSON array without any other text.`;
 
   try {
-    console.log(`Searching for tools with query: "${query}"`);
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 1024,
-        }
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      console.error('API error response:', errorData);
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
-      console.error('Unexpected API response structure:', data);
-      throw new Error('Invalid response from Gemini API');
+    console.log(`Searching for tools with query: "${query}" using ${provider}`);
+    
+    // Check if the selected provider is available
+    const availableProviders = await getAvailableAIProviders();
+    const providerExists = availableProviders.some(p => p.id === provider);
+    
+    // Use the default provider if the specified one is not available
+    if (!providerExists) {
+      const defaultProvider = await getDefaultProvider();
+      console.log(`Selected AI provider ${provider} not available. Using ${defaultProvider} instead.`);
+      provider = defaultProvider;
     }
     
-    const text = data.candidates[0].content.parts[0].text;
+    // Double-check that the provider we're about to use has an API key
+    let hasApiKey = false;
+    switch (provider) {
+      case 'openai':
+        hasApiKey = !!OPENAI_API_KEY;
+        break;
+      case 'anthropic':
+        hasApiKey = !!ANTHROPIC_API_KEY;
+        break;
+      case 'gemini':
+        hasApiKey = !!GEMINI_API_KEY;
+        break;
+    }
+    
+    if (!hasApiKey) {
+      console.log(`No API key available for ${provider}, falling back to another provider`);
+      // Try each provider in order of preference
+      if (OPENAI_API_KEY) {
+        provider = 'openai';
+      } else if (GEMINI_API_KEY) {
+        provider = 'gemini';
+      } else if (ANTHROPIC_API_KEY) {
+        provider = 'anthropic';
+      } else {
+        throw new Error('No API keys available. Please add at least one API key in Settings.');
+      }
+      console.log(`Falling back to ${provider} for search`);
+    }
+    
+    let responseText = '';
+    
+    // Use the appropriate provider-specific function
+    switch (provider) {
+      case 'openai':
+        responseText = await generateWithOpenAI(prompt);
+        break;
+      case 'anthropic':
+        responseText = await generateWithAnthropic(prompt);
+        break;
+      case 'gemini':
+      default:
+        responseText = await generateWithGemini(prompt);
+        break;
+    }
+
+    // Extract JSON from the response
     
     // Clean the response to extract JSON
-    const jsonMatch = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
+    const jsonMatch = responseText.match(/\[\s*\{[\s\S]*\}\s*\]/);
     if (!jsonMatch) {
-      console.error('No JSON array found in response:', text);
-      throw new Error('No valid JSON found in response');
+      console.error('No JSON array found in response:', responseText);
+      throw new Error('No valid JSON array found in response');
     }
 
     try {
@@ -401,8 +463,11 @@ Return ONLY a JSON array of tags, like this: ["tag1", "tag2", "tag3"]`;
 // Provider-specific generation functions
 
 async function generateWithGemini(prompt: string): Promise<string> {
+  // Ensure API keys are loaded
+  await loadApiKeys();
+  
   if (!GEMINI_API_KEY) {
-    throw new Error('Gemini API key is missing. Please check your environment variables.');
+    throw new Error('Gemini API key is missing. Please add your API key in the Settings page.');
   }
 
   const requestBody = {
@@ -419,39 +484,55 @@ async function generateWithGemini(prompt: string): Promise<string> {
   
   console.log('Gemini request body:', JSON.stringify(requestBody));
   
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestBody),
-  });
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Gemini API error response:', errorText);
-    try {
-      const errorData = JSON.parse(errorText);
-      console.error('Parsed error data:', errorData);
-    } catch (e) {
-      // Text wasn't valid JSON
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Gemini API error response:', errorText);
+      
+      try {
+        const errorData = JSON.parse(errorText);
+        console.error('Parsed error data:', errorData);
+      } catch (e) {
+        // Text wasn't valid JSON
+      }
+      
+      // Special handling for 503 errors
+      if (response.status === 503) {
+        throw new Error(`Gemini API is currently unavailable (503 Service Unavailable). This may be due to high traffic or the model being overloaded. Please try again later or switch to a different AI provider in the settings.`);
+      }
+      
+      throw new Error(`Gemini API request failed: ${response.status} ${response.statusText}`);
     }
-    throw new Error(`Gemini API request failed: ${response.status} ${response.statusText}`);
-  }
 
-  const data = await response.json();
-  
-  if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
-    console.error('Unexpected Gemini API response structure:', data);
-    throw new Error('Invalid response from Gemini API');
+    const data = await response.json();
+    
+    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
+      console.error('Unexpected Gemini API response structure:', data);
+      throw new Error('Invalid response from Gemini API');
+    }
+    
+    return data.candidates[0].content.parts[0].text.trim();
+  } catch (error) {
+    console.error('Error in generateWithGemini:', error);
+    // Re-throw the error to be handled by the caller
+    throw error;
   }
-  
-  return data.candidates[0].content.parts[0].text.trim();
 }
 
 async function generateWithOpenAI(prompt: string): Promise<string> {
+  // Ensure API keys are loaded
+  await loadApiKeys();
+  
   if (!OPENAI_API_KEY) {
-    throw new Error('OpenAI API key is missing. Please check your environment variables.');
+    throw new Error('OpenAI API key is missing. Please add your API key in the Settings page.');
   }
   
   const requestBody = {
@@ -498,8 +579,11 @@ async function generateWithOpenAI(prompt: string): Promise<string> {
 }
 
 async function generateWithAnthropic(prompt: string): Promise<string> {
+  // Ensure API keys are loaded
+  await loadApiKeys();
+  
   if (!ANTHROPIC_API_KEY) {
-    throw new Error('Anthropic API key is missing. Please check your environment variables.');
+    throw new Error('Anthropic API key is missing. Please add your API key in the Settings page.');
   }
   
   const requestBody = {

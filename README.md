@@ -118,11 +118,6 @@ yarn
 # Supabase configuration
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# AI providers (at least one is recommended)
-VITE_GEMINI_API_KEY=your_gemini_api_key
-VITE_OPENAI_API_KEY=your_openai_api_key
-VITE_ANTHROPIC_API_KEY=your_anthropic_api_key
 ```
 
 4. Start the development server
@@ -134,22 +129,22 @@ yarn dev
 
 ## AI Provider Setup
 
-The app supports multiple AI providers for generating tool descriptions, tags, and notes:
+The app supports multiple AI providers for generating tool descriptions, tags, and notes. API keys are managed through the Settings page in the application:
 
 ### OpenAI
 1. Sign up for an account at [OpenAI](https://platform.openai.com/)
 2. Generate an API key in your dashboard
-3. Add to your .env.local file: `VITE_OPENAI_API_KEY=your_key_here`
+3. Add your API key in the Settings page of the application
 
 ### Google Gemini
 1. Sign up at [Google AI Studio](https://aistudio.google.com/)
 2. Get an API key from the credentials section
-3. Add to your .env.local file: `VITE_GEMINI_API_KEY=your_key_here`
+3. Add your API key in the Settings page of the application
 
 ### Anthropic Claude
 1. Sign up at [Anthropic](https://console.anthropic.com/)
 2. Generate an API key
-3. Add to your .env.local file: `VITE_ANTHROPIC_API_KEY=your_key_here`
+3. Add your API key in the Settings page of the application
 
 ## Supabase Setup
 

@@ -3,7 +3,6 @@ import { Tool } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Bookmark, BookmarkCheck, Clock, TrendingUp, Star, ExternalLink, Pencil, Trash2, MoreVertical, Heart, FolderPlus } from 'lucide-react';
-import { ToolRating } from './ToolRating';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
 
 interface ToolListItemProps {
@@ -163,12 +162,6 @@ export function ToolListItem({ tool, onEdit, onDelete, onTogglePin, onToggleFavo
       
       {/* Tablet and desktop actions */}
       <div className="hidden sm:flex items-center gap-2 ml-4">
-        {tool.rating && tool.rating > 0 && (
-          <div className="hidden lg:flex">
-            <ToolRating rating={tool.rating} onRatingChange={() => {}} readonly />
-          </div>
-        )}
-        
         {(tool.usageCount || daysSinceLastUsed !== null) && (
           <div className="hidden lg:flex items-center gap-2 text-xs text-muted-foreground border-l border-border/50 pl-2">
             {tool.usageCount && tool.usageCount > 0 && (
@@ -282,4 +275,4 @@ export function ToolListItem({ tool, onEdit, onDelete, onTogglePin, onToggleFavo
       </div>
     </div>
   );
-} 
+}

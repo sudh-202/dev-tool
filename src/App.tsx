@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Routes, Route, useNavigate } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import Settings from "./pages/Settings";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { MigrationPrompt } from "./components/MigrationPrompt";
 import { testSupabaseConnection } from "./utils/supabaseTest";
@@ -238,6 +239,7 @@ const App = () => {
 
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/settings" element={<Settings />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -7,6 +7,7 @@ import { searchTools } from '@/services/aiService';
 import { Tool } from '@/types';
 import { useDebounce } from '@/hooks/useDebounce';
 import { toast } from '@/hooks/use-toast';
+import { useAIProvider } from '@/contexts/AIProviderContext';
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -30,6 +31,7 @@ export function SearchBar({
   const [apiResults, setApiResults] = useState<any[]>([]);
   const debouncedQuery = useDebounce(query, 500);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { currentProvider } = useAIProvider();
 
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
@@ -73,8 +75,8 @@ export function SearchBar({
 
       setIsApiLoading(true);
       try {
-        console.log(`Searching for tools with query: "${debouncedQuery}"`);
-        const results = await searchTools(debouncedQuery);
+        console.log(`Searching for tools with query: "${debouncedQuery}" using ${currentProvider}`);
+        const results = await searchTools(debouncedQuery, currentProvider);
         
         // Filter out results that match existing tools by URL
         const filteredResults = results.filter(result => {

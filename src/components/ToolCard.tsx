@@ -7,7 +7,6 @@ import {
   Bookmark, BookmarkCheck, Clock, TrendingUp, ExternalLink, 
   Pencil, Trash2, Heart, HeartOff, FolderPlus 
 } from 'lucide-react';
-import { ToolRating } from './ToolRating';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -111,9 +110,6 @@ export function ToolCard({ tool, onEdit, onDelete, onTogglePin, onToggleFavorite
         )}
 
         <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
-          {tool.rating && tool.rating > 0 && (
-            <ToolRating rating={tool.rating} onRatingChange={() => {}} readonly />
-          )}
           {tool.usageCount && tool.usageCount > 0 && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <TrendingUp className="h-2.5 w-2.5" />

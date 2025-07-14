@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useAIProvider } from '@/contexts/AIProviderContext';
 import { Button } from '@/components/ui/button';
-import { Settings, Sparkles } from 'lucide-react';
+import { Settings, Sparkles, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,34 +81,39 @@ export function AIModelSelector({ variant = 'default' }: AIModelSelectorProps) {
           <span>Select AI Provider</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem 
-          className={`flex items-center justify-between ${currentProvider === 'openai' ? 'bg-accent' : ''}`}
-          onClick={() => handleProviderChange('openai')}
-        >
-          <span>OpenAI (GPT-4)</span>
-          <Badge variant="outline" className="bg-green-500/10 text-green-500 text-[10px]">
-            Best Quality
-          </Badge>
-        </DropdownMenuItem>
-        <DropdownMenuItem 
-          className={`flex items-center justify-between ${currentProvider === 'gemini' ? 'bg-accent' : ''}`}
-          onClick={() => handleProviderChange('gemini')}
-        >
-          <span>Google Gemini</span>
-          <Badge variant="outline" className="bg-blue-500/10 text-blue-500 text-[10px]">
-            Balanced
-          </Badge>
-        </DropdownMenuItem>
-        <DropdownMenuItem 
-          className={`flex items-center justify-between ${currentProvider === 'anthropic' ? 'bg-accent' : ''}`}
-          onClick={() => handleProviderChange('anthropic')}
-        >
-          <span>Anthropic Claude</span>
-          <Badge variant="outline" className="bg-purple-500/10 text-purple-500 text-[10px]">
-            Creative
-          </Badge>
+        {availableProviders.length === 0 ? (
+          <div className="px-2 py-1.5 text-sm text-muted-foreground">
+            No API keys configured
+          </div>
+        ) : (
+          availableProviders.map((provider) => (
+            <DropdownMenuItem 
+              key={provider.id}
+              className={`flex items-center justify-between ${currentProvider === provider.id ? 'bg-accent' : ''}`}
+              onClick={() => handleProviderChange(provider.id)}
+            >
+              <span>{provider.name}</span>
+              <Badge 
+                variant="outline" 
+                className={`text-[10px] ${getProviderBadgeColor(provider.id)}`}
+              >
+                {provider.id === 'openai' ? 'Best Quality' : 
+                 provider.id === 'gemini' ? 'Balanced' : 
+                 provider.id === 'anthropic' ? 'Creative' : ''}
+              </Badge>
+            </DropdownMenuItem>
+          ))
+        )}
+        
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/settings" className="flex items-center gap-2 cursor-pointer">
+            <Settings className="h-3.5 w-3.5" />
+            <span>Manage API Keys</span>
+            <ExternalLink className="h-3 w-3 ml-auto" />
+          </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
-} 
+}

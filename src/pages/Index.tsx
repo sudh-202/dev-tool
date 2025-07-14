@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Star, Clock, TrendingUp, Grid, List, Loader2, X } from 'lucide-react';
+import { Sparkles, Clock, TrendingUp, Grid, List, Loader2, X } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   recoverTools,
@@ -98,7 +98,7 @@ const Index = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAIPromptOpen, setIsAIPromptOpen] = useState(false);
   const [editingTool, setEditingTool] = useState<Tool | null>(null);
-  const [sortBy, setSortBy] = useState<'recent' | 'rating' | 'usage'>('recent');
+  const [sortBy, setSortBy] = useState<'recent' | 'usage'>('recent');
   const [viewMode, setViewMode] = useLocalStorage<'grid' | 'list'>('view-mode', 'grid');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customCategories, setCustomCategories] = useLocalStorage<string[]>('custom-categories', []);
@@ -188,9 +188,7 @@ const Index = () => {
 
     // Sort tools
     return filtered.sort((a, b) => {
-      if (sortBy === 'rating') {
-        return (b.rating || 0) - (a.rating || 0);
-      } else if (sortBy === 'usage') {
+      if (sortBy === 'usage') {
         return (b.usageCount || 0) - (a.usageCount || 0);
       } else {
         // Default: pinned first, then by creation date
@@ -590,17 +588,7 @@ const Index = () => {
                     <Clock className="h-4 w-4 mr-1" />
                     Recent
                   </Button>
-                  <Button
-                    variant={sortBy === 'rating' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => {
-                      setSortBy('rating');
-                      setSelectedCategory('all');
-                    }}
-                  >
-                    <Star className="h-4 w-4 mr-1" />
-                    Rating
-                  </Button>
+
                   <Button
                     variant={sortBy === 'usage' ? 'default' : 'outline'}
                     size="sm"
@@ -661,18 +649,7 @@ const Index = () => {
                 <Clock className="h-3 w-3 mr-1" />
                 Recent
               </Button>
-              <Button
-                variant={sortBy === 'rating' ? 'default' : 'outline'}
-                size="sm"
-                className="h-8 px-2 text-xs"
-                onClick={() => {
-                  setSortBy('rating');
-                  setSelectedCategory('all');
-                }}
-              >
-                <Star className="h-3 w-3 mr-1" />
-                Rating
-              </Button>
+
               <Button
                 variant={sortBy === 'usage' ? 'default' : 'outline'}
                 size="sm"

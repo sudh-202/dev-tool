@@ -14,7 +14,6 @@ export interface Tool {
   email?: string;
   apiKey?: string;
   notes?: string;
-  rating?: number;
   lastUsed?: Date;
   usageCount?: number;
 }

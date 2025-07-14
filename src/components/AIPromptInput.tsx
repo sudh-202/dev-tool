@@ -30,12 +30,7 @@ export function AIPromptInput({ onToolsGenerated, onClose }: AIPromptInputProps)
     try {
       console.log(`Generating tools with prompt: "${prompt}" and count: ${toolCount}`);
       
-      // Check if Gemini API key is set
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) {
-        console.error('Gemini API key is not set');
-        throw new Error('Gemini API key is missing. Please check your environment variables.');
-      }
+      // API keys are now loaded from user settings in the database
       
       const aiResponse = await generateToolsFromPrompt(prompt, toolCount);
       console.log('AI response received:', aiResponse);

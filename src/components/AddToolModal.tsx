@@ -17,7 +17,6 @@ import {
 } from '@/services/aiService';
 import { toast } from '@/hooks/use-toast';
 import { SmartInputParser } from './SmartInputParser';
-import { ToolRating } from './ToolRating';
 import {
   Popover,
   PopoverContent,
@@ -46,7 +45,7 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
     email: '',
     apiKey: '',
     notes: '',
-    rating: 0,
+
   });
   const [tagInput, setTagInput] = useState('');
   const [categoryInput, setCategoryInput] = useState('');
@@ -74,7 +73,7 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
         email: editingTool.email || '',
         apiKey: editingTool.apiKey || '',
         notes: editingTool.notes || '',
-        rating: editingTool.rating || 0,
+
       });
       
       // If category is not in default list, it's a custom category
@@ -96,7 +95,7 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
         email: '',
         apiKey: '',
         notes: '',
-        rating: 0,
+
       });
       setCustomCategory('');
     }
@@ -352,7 +351,6 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
         email: formData.email.trim() || undefined,
         apiKey: formData.apiKey.trim() || undefined,
         notes: formData.notes.trim() || undefined,
-        rating: formData.rating || undefined,
       });
       onClose();
     }
@@ -572,26 +570,7 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
             )}
           </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <Label>Rating (Optional)</Label>
-              {formData.rating > 0 && (
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-5 text-xs text-muted-foreground"
-                  onClick={() => setFormData(prev => ({ ...prev, rating: 0 }))}
-                >
-                  Clear
-                </Button>
-              )}
-            </div>
-            <ToolRating
-              rating={formData.rating}
-              onRatingChange={(rating) => setFormData(prev => ({ ...prev, rating }))}
-            />
-          </div>
+
 
           <div className="space-y-2">
             <div className="flex justify-between">
