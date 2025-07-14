@@ -49,6 +49,7 @@ const App = () => {
       console.log("API key length:", supabase.supabaseKey.length);
       console.log("Testing Supabase connection...");
       
+      
       try {
         const result = await testSupabaseConnection();
         console.log("Connection test result:", result);
