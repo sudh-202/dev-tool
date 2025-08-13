@@ -726,24 +726,28 @@ const Index = () => {
                     <TrendingUp className="h-4 w-4 mr-1" />
                     Usage
                   </Button>
-                    {/* Debug and Recovery utilities */}
-              <div className=" flex justify-end">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="text-xs">
-                      <Download className="h-3 w-3" />
-                      Export
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56">
-                    <DropdownMenuItem onClick={() => exportToolsAsCSV(tools)}>
-                      Export Tools (CSV)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => exportToolsAsJSON(tools)}>
-                      Export Tools (JSON)
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    {/* <DropdownMenuItem 
+                  {/* Debug and Recovery utilities */}
+                  <div className=" flex justify-end">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="text-xs">
+                          <Download className="h-3 w-3" />
+                          Export
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-56">
+                        <DropdownMenuItem
+                          onClick={() => exportToolsAsCSV(tools)}
+                        >
+                          Export Tools (CSV)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => exportToolsAsJSON(tools)}
+                        >
+                          Export Tools (JSON)
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {/* <DropdownMenuItem 
                       onClick={async () => {
                         const recovered = await recoverTools();
                         if (recovered) {
@@ -763,9 +767,9 @@ const Index = () => {
                     >
                       Fix Categories Format
                     </DropdownMenuItem> */}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
                 <div className="flex items-center">
                   <div className="flex items-center border rounded-md overflow-hidden h-8">
@@ -892,8 +896,6 @@ const Index = () => {
                 onNavigateToTool={handleNavigateToTool}
                 tools={tools}
               />
-
-            
 
               {/* Tags filter */}
               <div className="mb-4">
