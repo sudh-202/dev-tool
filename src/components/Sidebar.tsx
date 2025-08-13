@@ -16,6 +16,7 @@ import {
   BookmarkCheck, 
   LayoutGrid, 
   Code, 
+
   Server, 
   Palette, 
   Wrench, 
@@ -47,6 +48,8 @@ interface SidebarProps {
   onCategorySelect: (category: string) => void;
   pinnedCount: number;
   favoritesCount: number;
+  allToolsCount: number;
+  categoriesCount: number;
   onAIPrompt: () => void;
   onCreateCategory: (categoryName: string) => void;
   onDeleteCategory?: (categoryName: string) => void;
@@ -59,6 +62,8 @@ export function Sidebar({
   onCategorySelect, 
   pinnedCount, 
   favoritesCount, 
+  allToolsCount,
+  categoriesCount,
   onAIPrompt,
   onCreateCategory,
   onDeleteCategory,
@@ -186,6 +191,19 @@ export function Sidebar({
         {/* Scrollable content area */}
         <ScrollArea className="flex-1 overflow-y-auto overflow-x-hidden">
           <div className="p-3 sm:p-4 space-y-2">
+          <Button
+              variant={selectedCategory === 'all' ? 'secondary' : 'ghost'}
+              className="w-full justify-between h-9 px-2 sm:px-3 font-normal text-sm"
+              onClick={() => handleCategorySelect('all')}
+            >
+              <div className="flex items-center min-w-0">
+                <Folder className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0 text-sidebar-foreground" />
+                <span className="text-sidebar-foreground truncate">All Tools</span>
+              </div>
+              <Badge variant="secondary" className="bg-sidebar-accent/50 text-sidebar-foreground text-xs flex-shrink-0">
+                {allToolsCount}
+              </Badge>
+            </Button>
             {pinnedCount > 0 && (
               <Button
                 variant={selectedCategory === 'pinned' ? 'secondary' : 'ghost'}
@@ -216,21 +234,23 @@ export function Sidebar({
               </Badge>
             </Button>
 
+            
+
             <Button
-              variant={selectedCategory === 'all' ? 'secondary' : 'ghost'}
+              variant={selectedCategory === 'categories' ? 'secondary' : 'ghost'}
               className="w-full justify-between h-9 px-2 sm:px-3 font-normal text-sm"
-              onClick={() => handleCategorySelect('all')}
+              onClick={() => handleCategorySelect('categories')}
             >
               <div className="flex items-center min-w-0">
                 <LayoutGrid className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0 text-sidebar-foreground" />
-                <span className="text-sidebar-foreground truncate">All Tools</span>
+                <span className="text-sidebar-foreground truncate">Categories</span>
               </div>
               <Badge variant="secondary" className="bg-sidebar-accent/50 text-sidebar-foreground text-xs flex-shrink-0">
-                {categories.reduce((sum, cat) => sum + cat.toolCount, 0)}
+                {categoriesCount}
               </Badge>
             </Button>
 
-            <Button
+            {/* <Button
               variant="ghost"
               className="w-full justify-start h-9 px-2 sm:px-3 font-normal text-sm"
               onClick={() => {
@@ -242,7 +262,7 @@ export function Sidebar({
             >
               <Sparkles className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0 text-sidebar-foreground" />
               <span className="text-sidebar-foreground truncate">AI Search</span>
-            </Button>
+            </Button> */}
 
             <Button
               variant="ghost"

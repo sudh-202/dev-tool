@@ -182,9 +182,10 @@ export const getDefaultProvider = async (): Promise<AIProvider> => {
   // Ensure API keys are loaded
   await loadApiKeys();
   
+  // Prefer Gemini by default when available
+  if (GEMINI_API_KEY) return 'gemini';
   if (OPENAI_API_KEY) return 'openai';
   if (OPENAI7_API_KEY) return 'openai7';
-  if (GEMINI_API_KEY) return 'gemini';
   if (ANTHROPIC_API_KEY) return 'anthropic';
   if (ANTHROPICCLAUDE_API_KEY) return 'anthropicclaude';
   if (GROQ_API_KEY) return 'groq';
