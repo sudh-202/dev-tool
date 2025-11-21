@@ -46,13 +46,13 @@ export type AIProvider = 'gemini' | 'openai' | 'anthropic' | 'groq' | 'stability
 export async function loadApiKeys(): Promise<void> {
   try {
     const userSettings = await getUserSettings();
-    
+
     if (userSettings) {
       // Override environment variables with user settings if available
       if (userSettings.gemini_api_key) {
         GEMINI_API_KEY = userSettings.gemini_api_key;
       }
-      
+
       if (userSettings.openai_api_key) {
         OPENAI_API_KEY = userSettings.openai_api_key;
       }
@@ -60,7 +60,7 @@ export async function loadApiKeys(): Promise<void> {
       if (userSettings.openai7_api_key) {
         OPENAI7_API_KEY = userSettings.openai7_api_key;
       }
-      
+
       if (userSettings.anthropic_api_key) {
         ANTHROPIC_API_KEY = userSettings.anthropic_api_key;
       }
@@ -97,7 +97,7 @@ export async function loadApiKeys(): Promise<void> {
         DEEPSEEK_API_KEY = userSettings.deepseek_api_key;
       }
     }
-    
+
     // Log API key status for debugging
     console.log(`Gemini API Key status: ${GEMINI_API_KEY ? 'Available' : 'Missing'}`);
     console.log(`OpenAI API Key status: ${OPENAI_API_KEY ? 'Available' : 'Missing'}`);
@@ -123,13 +123,13 @@ loadApiKeys();
 export async function getAvailableAIProviders(): Promise<{ id: AIProvider; name: string }[]> {
   // Ensure API keys are loaded
   await loadApiKeys();
-  
+
   const providers = [];
-  
+
   if (GEMINI_API_KEY) {
     providers.push({ id: 'gemini', name: 'Gemini AI' });
   }
-  
+
   if (OPENAI_API_KEY) {
     providers.push({ id: 'openai', name: 'OpenAI (GPT-4)' });
   }
@@ -137,7 +137,7 @@ export async function getAvailableAIProviders(): Promise<{ id: AIProvider; name:
   if (OPENAI7_API_KEY) {
     providers.push({ id: 'openai7', name: 'OpenAI (GPT-3.5)' });
   }
-  
+
   if (ANTHROPIC_API_KEY) {
     providers.push({ id: 'anthropic', name: 'Claude' });
   }
@@ -173,7 +173,7 @@ export async function getAvailableAIProviders(): Promise<{ id: AIProvider; name:
   if (DEEPSEEK_API_KEY) {
     providers.push({ id: 'deepseek', name: 'DeepSeek' });
   }
-  
+
   return providers;
 }
 
@@ -181,7 +181,7 @@ export async function getAvailableAIProviders(): Promise<{ id: AIProvider; name:
 export const getDefaultProvider = async (): Promise<AIProvider> => {
   // Ensure API keys are loaded
   await loadApiKeys();
-  
+
   // Prefer Gemini by default when available
   if (GEMINI_API_KEY) return 'gemini';
   if (OPENAI_API_KEY) return 'openai';
@@ -200,10 +200,10 @@ export const getDefaultProvider = async (): Promise<AIProvider> => {
 
 export async function generateToolsFromPrompt(prompt: string, toolCount: number = 5, provider: AIProvider = 'gemini'): Promise<AIResponse> {
   console.log(`Starting tool generation with prompt: "${prompt}" and count: ${toolCount}`);
-  
+
   // Ensure API keys are loaded before proceeding
   await loadApiKeys();
-  
+
   const systemPrompt = `You are a helpful AI that generates developer tool recommendations based on user prompts. 
   
 Given a user prompt, respond with a JSON object containing:
@@ -231,19 +231,23 @@ Only respond with valid JSON. Ensure all URLs are real and working.`;
   // Check if the selected provider is available
   const availableProviders = await getAvailableAIProviders();
   const providerExists = availableProviders.some(p => p.id === provider);
-  
+
   // Use the default provider if the specified one is not available
   if (!providerExists) {
     provider = await getDefaultProvider();
     console.log(`Selected AI provider not available. Using ${provider} instead.`);
-    toast.warning(`Selected AI provider not available. Using ${provider} instead.`);
+    toast({
+      title: "Provider Unavailable",
+      description: `Selected AI provider not available. Using ${provider} instead.`,
+      variant: "destructive"
+    });
   }
 
   try {
     console.log(`Making API request to ${provider}...`);
     let responseText = '';
     const fullPrompt = `${systemPrompt}\n\nUser prompt: "${prompt}"`;
-    
+
     // Use the appropriate provider-specific function
     switch (provider) {
       case 'openai':
@@ -252,12 +256,15 @@ Only respond with valid JSON. Ensure all URLs are real and working.`;
       case 'anthropic':
         responseText = await generateWithAnthropic(fullPrompt);
         break;
+      case 'openrouter':
+        responseText = await generateWithOpenRouter(fullPrompt);
+        break;
       case 'gemini':
       default:
         responseText = await generateWithGemini(fullPrompt);
         break;
     }
-    
+
     // Clean the response to extract JSON
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
@@ -271,13 +278,13 @@ Only respond with valid JSON. Ensure all URLs are real and working.`;
       const jsonText = jsonMatch[0];
       console.log('Extracted JSON:', jsonText.slice(0, 200) + '...');
       const aiResponse = JSON.parse(jsonText);
-      
+
       // Validate response structure
       if (!aiResponse.tools || !Array.isArray(aiResponse.tools) || aiResponse.tools.length === 0) {
         console.error('Invalid tools array in response:', aiResponse);
         throw new Error('Generated response is missing tools array');
       }
-      
+
       return aiResponse;
     } catch (parseError) {
       console.error('JSON parse error:', parseError, 'Original text:', jsonMatch[0]);
@@ -285,15 +292,15 @@ Only respond with valid JSON. Ensure all URLs are real and working.`;
     }
   } catch (error) {
     console.error('Error generating tools from prompt:', error);
-    throw error instanceof Error 
-      ? error 
+    throw error instanceof Error
+      ? error
       : new Error('Failed to generate tools. Please try again.');
   }
 }
 
 export async function suggestSimilarTools(existingTools: string[]): Promise<AIGeneratedTool[]> {
   const prompt = `Based on these existing tools: ${existingTools.join(', ')}, suggest 3 similar or complementary tools that would be useful for this user's workflow.`;
-  
+
   try {
     const response = await generateToolsFromPrompt(prompt);
     return response.tools.slice(0, 3);
@@ -304,11 +311,12 @@ export async function suggestSimilarTools(existingTools: string[]): Promise<AIGe
 }
 
 export async function categorizeAndTagTool(
-  toolName: string, 
-  url: string, 
+  toolName: string,
+  url: string,
   description?: string,
-  provider: AIProvider = getDefaultProvider()
+  provider?: AIProvider
 ): Promise<{ category: string; tags: string[] }> {
+  const selectedProvider = provider || await getDefaultProvider();
   const prompt = `Categorize this tool and suggest relevant tags:
   Name: ${toolName}
   URL: ${url}
@@ -317,24 +325,27 @@ export async function categorizeAndTagTool(
   Respond with JSON: {"category": "CategoryName", "tags": ["tag1", "tag2", "tag3"]}`;
 
   try {
-    console.log(`Categorizing tool with ${provider}: ${toolName}`);
+    console.log(`Categorizing tool with ${selectedProvider}: ${toolName}`);
     let generatedText = '';
-    
-    switch (provider) {
+
+    switch (selectedProvider) {
       case 'openai':
         generatedText = await generateWithOpenAI(prompt);
         break;
       case 'anthropic':
         generatedText = await generateWithAnthropic(prompt);
         break;
+      case 'openrouter':
+        generatedText = await generateWithOpenRouter(prompt);
+        break;
       case 'gemini':
       default:
         generatedText = await generateWithGemini(prompt);
         break;
     }
-    
+
     const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
-    
+
     if (jsonMatch) {
       const result = JSON.parse(jsonMatch[0]);
       return {
@@ -352,7 +363,7 @@ export async function categorizeAndTagTool(
 export async function searchTools(query: string, provider: AIProvider = 'gemini'): Promise<AIGeneratedTool[]> {
   // Ensure API keys are loaded before proceeding
   await loadApiKeys();
-  
+
   const prompt = `Search for developer tools related to: "${query}".
   
   Return 5 relevant tools as a JSON array of objects with the following properties:
@@ -366,11 +377,11 @@ export async function searchTools(query: string, provider: AIProvider = 'gemini'
 
   try {
     console.log(`Searching for tools with query: "${query}" using ${provider}`);
-    
+
     // Check if the selected provider is available
     const availableProviders = await getAvailableAIProviders();
     const providerExists = availableProviders.some(p => p.id === provider);
-    
+
     // Use the default provider if the specified one is not available
     if (!providerExists) {
       const defaultProvider = await getDefaultProvider();
@@ -389,8 +400,11 @@ export async function searchTools(query: string, provider: AIProvider = 'gemini'
       case 'gemini':
         hasApiKey = !!GEMINI_API_KEY;
         break;
+      case 'openrouter':
+        hasApiKey = !!OPENROUTER_API_KEY;
+        break;
     }
-    
+
     if (!hasApiKey) {
       console.log(`No API key available for ${provider}, falling back to another provider`);
       // Try each provider in order of preference
@@ -400,14 +414,16 @@ export async function searchTools(query: string, provider: AIProvider = 'gemini'
         provider = 'gemini';
       } else if (ANTHROPIC_API_KEY) {
         provider = 'anthropic';
+      } else if (OPENROUTER_API_KEY) {
+        provider = 'openrouter';
       } else {
         throw new Error('No API keys available. Please add at least one API key in Settings.');
       }
       console.log(`Falling back to ${provider} for search`);
     }
-    
+
     let responseText = '';
-    
+
     // Use the appropriate provider-specific function
     switch (provider) {
       case 'openai':
@@ -416,6 +432,9 @@ export async function searchTools(query: string, provider: AIProvider = 'gemini'
       case 'anthropic':
         responseText = await generateWithAnthropic(prompt);
         break;
+      case 'openrouter':
+        responseText = await generateWithOpenRouter(prompt);
+        break;
       case 'gemini':
       default:
         responseText = await generateWithGemini(prompt);
@@ -423,7 +442,7 @@ export async function searchTools(query: string, provider: AIProvider = 'gemini'
     }
 
     // Extract JSON from the response
-    
+
     // Clean the response to extract JSON
     const jsonMatch = responseText.match(/\[\s*\{[\s\S]*\}\s*\]/);
     if (!jsonMatch) {
@@ -439,8 +458,8 @@ export async function searchTools(query: string, provider: AIProvider = 'gemini'
     }
   } catch (error) {
     console.error('Error searching for tools:', error);
-    throw error instanceof Error 
-      ? error 
+    throw error instanceof Error
+      ? error
       : new Error('Failed to search for tools. Please try again.');
   }
 }
@@ -450,11 +469,12 @@ export async function generateFieldContent(
   toolUrl: string,
   field: 'description' | 'notes' | 'tags',
   existingDescription?: string,
-  provider: AIProvider = getDefaultProvider()
+  provider?: AIProvider
 ): Promise<AIFieldContent> {
-  
+  const selectedProvider = provider || await getDefaultProvider();
+
   let prompt = '';
-  
+
   switch (field) {
     case 'description':
       prompt = `Generate a concise description (30-50 words) for this developer tool:
@@ -488,28 +508,31 @@ Return ONLY a JSON array of tags, like this: ["tag1", "tag2", "tag3"]`;
   }
 
   try {
-    console.log(`Generating ${field} with ${provider} for ${toolName}`);
+    console.log(`Generating ${field} with ${selectedProvider} for ${toolName}`);
     console.log(`Using prompt: ${prompt}`);
 
     let generatedText = '';
-    
-    switch (provider) {
+
+    switch (selectedProvider) {
       case 'openai':
         generatedText = await generateWithOpenAI(prompt);
         break;
       case 'anthropic':
         generatedText = await generateWithAnthropic(prompt);
         break;
+      case 'openrouter':
+        generatedText = await generateWithOpenRouter(prompt);
+        break;
       case 'gemini':
       default:
         generatedText = await generateWithGemini(prompt);
         break;
     }
-    
+
     console.log(`Generated text for ${field}:`, generatedText);
-    
+
     const result: AIFieldContent = {};
-    
+
     switch (field) {
       case 'description':
         result.description = generatedText;
@@ -527,7 +550,7 @@ Return ONLY a JSON array of tags, like this: ["tag1", "tag2", "tag3"]`;
               break;
             }
           }
-          
+
           // Fallback: split by commas or lines if not valid JSON
           result.tags = generatedText
             .split(/[,\n]/)
@@ -543,7 +566,7 @@ Return ONLY a JSON array of tags, like this: ["tag1", "tag2", "tag3"]`;
         }
         break;
     }
-    
+
     console.log(`Final result for ${field}:`, result);
     return result;
   } catch (error) {
@@ -553,8 +576,8 @@ Return ONLY a JSON array of tags, like this: ["tag1", "tag2", "tag3"]`;
       description: `Could not generate ${field}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       variant: "destructive"
     });
-    throw error instanceof Error 
-      ? error 
+    throw error instanceof Error
+      ? error
       : new Error(`Failed to generate ${field}. Please try again.`);
   }
 }
@@ -564,7 +587,7 @@ Return ONLY a JSON array of tags, like this: ["tag1", "tag2", "tag3"]`;
 async function generateWithGemini(prompt: string): Promise<string> {
   // Ensure API keys are loaded
   await loadApiKeys();
-  
+
   if (!GEMINI_API_KEY) {
     throw new Error('Gemini API key is missing. Please add your API key in the Settings page.');
   }
@@ -580,9 +603,9 @@ async function generateWithGemini(prompt: string): Promise<string> {
       maxOutputTokens: 512,
     }
   };
-  
+
   console.log('Gemini request body:', JSON.stringify(requestBody));
-  
+
   try {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
@@ -595,29 +618,29 @@ async function generateWithGemini(prompt: string): Promise<string> {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Gemini API error response:', errorText);
-      
+
       try {
         const errorData = JSON.parse(errorText);
         console.error('Parsed error data:', errorData);
       } catch (e) {
         // Text wasn't valid JSON
       }
-      
+
       // Special handling for 503 errors
       if (response.status === 503) {
         throw new Error(`Gemini API is currently unavailable (503 Service Unavailable). This may be due to high traffic or the model being overloaded. Please try again later or switch to a different AI provider in the settings.`);
       }
-      
+
       throw new Error(`Gemini API request failed: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    
+
     if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
       console.error('Unexpected Gemini API response structure:', data);
       throw new Error('Invalid response from Gemini API');
     }
-    
+
     return data.candidates[0].content.parts[0].text.trim();
   } catch (error) {
     console.error('Error in generateWithGemini:', error);
@@ -629,11 +652,11 @@ async function generateWithGemini(prompt: string): Promise<string> {
 async function generateWithOpenAI(prompt: string): Promise<string> {
   // Ensure API keys are loaded
   await loadApiKeys();
-  
+
   if (!OPENAI_API_KEY) {
     throw new Error('OpenAI API key is missing. Please add your API key in the Settings page.');
   }
-  
+
   const requestBody = {
     model: "gpt-4-turbo", // Using the most capable model
     messages: [
@@ -643,9 +666,9 @@ async function generateWithOpenAI(prompt: string): Promise<string> {
     temperature: 0.3,
     max_tokens: 500
   };
-  
+
   console.log('OpenAI request (without credentials):', JSON.stringify(requestBody));
-  
+
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -668,23 +691,23 @@ async function generateWithOpenAI(prompt: string): Promise<string> {
   }
 
   const data = await response.json();
-  
+
   if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
     console.error('Unexpected OpenAI API response structure:', data);
     throw new Error('Invalid response from OpenAI API');
   }
-  
+
   return data.choices[0].message.content.trim();
 }
 
 async function generateWithAnthropic(prompt: string): Promise<string> {
   // Ensure API keys are loaded
   await loadApiKeys();
-  
+
   if (!ANTHROPIC_API_KEY) {
     throw new Error('Anthropic API key is missing. Please add your API key in the Settings page.');
   }
-  
+
   const requestBody = {
     model: "claude-3-haiku-20240307",
     messages: [
@@ -693,9 +716,9 @@ async function generateWithAnthropic(prompt: string): Promise<string> {
     max_tokens: 500,
     temperature: 0.3
   };
-  
+
   console.log('Anthropic request (without credentials):', JSON.stringify(requestBody));
-  
+
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -719,11 +742,63 @@ async function generateWithAnthropic(prompt: string): Promise<string> {
   }
 
   const data = await response.json();
-  
+
   if (!data.content || !data.content[0] || !data.content[0].text) {
     console.error('Unexpected Anthropic API response structure:', data);
     throw new Error('Invalid response from Anthropic API');
   }
-  
+
   return data.content[0].text.trim();
+}
+
+async function generateWithOpenRouter(prompt: string): Promise<string> {
+  // Ensure API keys are loaded
+  await loadApiKeys();
+
+  if (!OPENROUTER_API_KEY) {
+    throw new Error('OpenRouter API key is missing. Please add your API key in the Settings page.');
+  }
+
+  const requestBody = {
+    model: "openai/gpt-3.5-turbo", // Default cheap model, user can change this if we add model selection
+    messages: [
+      { role: "user", content: prompt }
+    ],
+    temperature: 0.3,
+    max_tokens: 1000
+  };
+
+  console.log('OpenRouter request (without credentials):', JSON.stringify(requestBody));
+
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'HTTP-Referer': window.location.origin, // Required by OpenRouter
+      'X-Title': 'DevToolbox' // Required by OpenRouter
+    },
+    body: JSON.stringify(requestBody)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('OpenRouter API error response:', errorText);
+    try {
+      const errorData = JSON.parse(errorText);
+      console.error('Parsed OpenRouter error:', errorData);
+    } catch (e) {
+      // Text wasn't valid JSON
+    }
+    throw new Error(`OpenRouter API request failed: ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+
+  if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+    console.error('Unexpected OpenRouter API response structure:', data);
+    throw new Error('Invalid response from OpenRouter API');
+  }
+
+  return data.choices[0].message.content.trim();
 }

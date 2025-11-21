@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAIProvider } from '@/contexts/AIProviderContext';
 import { Button } from '@/components/ui/button';
-import { Settings, Sparkles, ExternalLink } from 'lucide-react';
+import { Settings, Sparkles, ExternalLink, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   DropdownMenu,
@@ -20,6 +20,34 @@ interface AIModelSelectorProps {
 
 export function AIModelSelector({ variant = 'default' }: AIModelSelectorProps) {
   const { currentProvider, setCurrentProvider, availableProviders } = useAIProvider();
+  const [favorites, setFavorites] = useState<string[]>([]);
+
+  // Load favorites from localStorage on mount
+  useEffect(() => {
+    const savedFavorites = localStorage.getItem('favorite_ai_providers');
+    if (savedFavorites) {
+      try {
+        setFavorites(JSON.parse(savedFavorites));
+      } catch (e) {
+        console.error('Failed to parse favorites', e);
+      }
+    }
+  }, []);
+
+  const toggleFavorite = (e: React.MouseEvent, providerId: string) => {
+    e.stopPropagation(); // Prevent dropdown from closing
+    e.preventDefault();
+    
+    let newFavorites;
+    if (favorites.includes(providerId)) {
+      newFavorites = favorites.filter(id => id !== providerId);
+    } else {
+      newFavorites = [...favorites, providerId];
+    }
+    
+    setFavorites(newFavorites);
+    localStorage.setItem('favorite_ai_providers', JSON.stringify(newFavorites));
+  };
   
   const handleProviderChange = (providerId: string) => {
     setCurrentProvider(providerId as any);
@@ -65,6 +93,15 @@ export function AIModelSelector({ variant = 'default' }: AIModelSelectorProps) {
     }
   };
 
+  // Sort providers: favorites first, then by original order
+  const sortedProviders = [...availableProviders].sort((a, b) => {
+    const aFav = favorites.includes(a.id);
+    const bFav = favorites.includes(b.id);
+    if (aFav && !bFav) return -1;
+    if (!aFav && bFav) return 1;
+    return 0;
+  });
+
   const isSidebar = variant === 'sidebar';
 
   return (
@@ -104,13 +141,23 @@ export function AIModelSelector({ variant = 'default' }: AIModelSelectorProps) {
             No API keys configured
           </div>
         ) : (
-          availableProviders.map((provider) => (
+          sortedProviders.map((provider) => (
             <DropdownMenuItem 
               key={provider.id}
-              className={`flex items-center justify-between ${currentProvider === provider.id ? 'bg-accent' : ''}`}
+              className={`flex items-center justify-between cursor-pointer ${currentProvider === provider.id ? 'bg-accent' : ''}`}
               onClick={() => handleProviderChange(provider.id)}
             >
-              <span>{provider.name}</span>
+              <div className="flex items-center gap-2">
+                <div 
+                  role="button"
+                  tabIndex={0}
+                  className={`p-0.5 rounded-full hover:bg-muted-foreground/20 transition-colors ${favorites.includes(provider.id) ? 'text-yellow-500' : 'text-muted-foreground/30 hover:text-yellow-500/50'}`}
+                  onClick={(e) => toggleFavorite(e, provider.id)}
+                >
+                  <Star className={`h-3.5 w-3.5 ${favorites.includes(provider.id) ? 'fill-yellow-500' : ''}`} />
+                </div>
+                <span>{provider.name}</span>
+              </div>
               <Badge 
                 variant="outline" 
                 className={`text-[10px] ${getProviderBadgeColor(provider.id)}`}

@@ -20,6 +20,8 @@ import { Button } from "@/components/ui/button";
 import { AIProviderProvider } from "@/contexts/AIProviderContext";
 import { AIModelSelector } from "@/components/AIModelSelector";
 
+import { LoadingAnimation } from "@/components/ui/LoadingAnimation";
+
 const queryClient = new QueryClient();
 
 const App = () => {
@@ -27,6 +29,7 @@ const App = () => {
   const [supabaseError, setSupabaseError] = useState<string | null>(null);
   const [showDbSetup, setShowDbSetup] = useState(false);
   const [showDevTools, setShowDevTools] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Check for development mode keyboard shortcut
@@ -45,13 +48,19 @@ const App = () => {
     // Test Supabase connection
     const testConnection = async () => {
       console.log("============== SUPABASE CONNECTION TEST ==============");
-      console.log("Supabase URL:", supabase.supabaseUrl);
-      console.log("API key length:", supabase.supabaseKey.length);
+      // console.log("Supabase URL:", supabase.supabaseUrl);
+      // console.log("API key length:", supabase.supabaseKey.length);
       console.log("Testing Supabase connection...");
       
+      // Simulate a minimum loading time for the animation to be seen
+      const minLoadTime = new Promise(resolve => setTimeout(resolve, 1500));
       
       try {
-        const result = await testSupabaseConnection();
+        const [result] = await Promise.all([
+          testSupabaseConnection(),
+          minLoadTime
+        ]);
+        
         console.log("Connection test result:", result);
         
         if (result.needsSetup) {
@@ -107,6 +116,8 @@ const App = () => {
       } catch (error) {
         console.error("Error testing Supabase connection:", error);
         setSupabaseError("Error testing Supabase connection. Check console for details.");
+      } finally {
+        setIsLoading(false);
       }
       console.log("==================================================");
     };
@@ -117,6 +128,7 @@ const App = () => {
   // Function to force a connection recheck
   const recheckConnection = async () => {
     console.log("Rechecking Supabase connection...");
+    setIsLoading(true);
     try {
       const result = await testSupabaseConnection();
       if (result.needsSetup) {
@@ -139,6 +151,8 @@ const App = () => {
       }
     } catch (error) {
       console.error("Error rechecking connection:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
   
@@ -152,6 +166,10 @@ const App = () => {
     // Recheck after a short delay to allow the toast to display
     setTimeout(recheckConnection, 1000);
   };
+
+  if (isLoading) {
+    return <LoadingAnimation />;
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
