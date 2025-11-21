@@ -225,6 +225,7 @@ Example response format:
   ],
   "categories": ["AI Tools", "Research", "Development"]
 }
+  
 
 Only respond with valid JSON. Ensure all URLs are real and working.`;
 
