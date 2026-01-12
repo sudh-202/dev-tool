@@ -1,4 +1,4 @@
-interface AIGeneratedTool {
+export interface AIGeneratedTool {
   name: string;
   url: string;
   description: string;

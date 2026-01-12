@@ -7,9 +7,11 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
 // The SQL script to create the necessary tables
-const setupScript = `-- Create the tools table
+const setupScript = `CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Create the tools table
 CREATE TABLE IF NOT EXISTS public.tools (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL,
     url TEXT,
     description TEXT,
@@ -65,7 +67,49 @@ INSERT INTO public.tools (title, url, description, category, user_id, tags)
 VALUES 
 ('GitHub', 'https://github.com', 'Collaborative code hosting platform', 'Development', 'anonymous', ARRAY['git', 'code', 'repository']),
 ('VS Code', 'https://code.visualstudio.com', 'Popular code editor', 'Development', 'anonymous', ARRAY['editor', 'ide', 'coding']),
-('Figma', 'https://figma.com', 'Collaborative design tool', 'Design', 'anonymous', ARRAY['design', 'ui', 'ux']);`;
+('Figma', 'https://figma.com', 'Collaborative design tool', 'Design', 'anonymous', ARRAY['design', 'ui', 'ux']);
+
+-- Create the documentation table (used by Prompt / Docs)
+CREATE TABLE IF NOT EXISTS public.documentation (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    category TEXT NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT,
+    description TEXT,
+    url TEXT,
+    framework TEXT,
+    version TEXT,
+    tags TEXT[],
+    is_favorite BOOLEAN,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    user_id TEXT NOT NULL
+);
+
+ALTER TABLE public.documentation ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own documentation" 
+ON public.documentation 
+FOR SELECT 
+USING (auth.uid()::text = user_id OR user_id = 'anonymous');
+
+CREATE POLICY "Users can insert their own documentation" 
+ON public.documentation 
+FOR INSERT 
+WITH CHECK (auth.uid()::text = user_id OR user_id = 'anonymous');
+
+CREATE POLICY "Users can update their own documentation" 
+ON public.documentation 
+FOR UPDATE 
+USING (auth.uid()::text = user_id OR user_id = 'anonymous');
+
+CREATE POLICY "Users can delete their own documentation" 
+ON public.documentation 
+FOR DELETE 
+USING (auth.uid()::text = user_id OR user_id = 'anonymous');
+
+CREATE INDEX IF NOT EXISTS documentation_user_id_idx ON public.documentation (user_id);
+CREATE INDEX IF NOT EXISTS documentation_category_idx ON public.documentation (category);`;
 
 export function DatabaseSetupHelper({ 
   onComplete, 
@@ -75,7 +119,7 @@ export function DatabaseSetupHelper({
   onRefresh?: () => Promise<void>;
 }) {
   const [copied, setCopied] = useState(false);
-  const supabaseUrl = supabase.supabaseUrl;
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://mijwhvxjzomypzhypgtc.supabase.co";
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(setupScript);

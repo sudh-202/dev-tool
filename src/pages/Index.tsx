@@ -194,7 +194,6 @@ const Index = () => {
       filtered = filtered.filter((tool) => tool.lastUsed);
     } else if (selectedCategory === "categories") {
       // For categories view, show all tools (they will be grouped by category later)
-      filtered = filtered;
     } else if (selectedCategory !== "all") {
       filtered = filtered.filter((tool) => {
         // Handle compatibility with older data format

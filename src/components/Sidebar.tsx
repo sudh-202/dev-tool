@@ -278,6 +278,20 @@ export function Sidebar({
               <span className="text-sidebar-foreground truncate">Quick Notes</span>
             </Button>
 
+            <Button
+              variant="ghost"
+              className="w-full justify-start h-9 px-2 sm:px-3 font-normal text-sm"
+              onClick={() => {
+                navigate('/prompts');
+                if (window.innerWidth < 768) {
+                  setIsMobileOpen(false);
+                }
+              }}
+            >
+              <Newspaper className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0 text-sidebar-foreground" />
+              <span className="text-sidebar-foreground truncate">Prompt / Docs</span>
+            </Button>
+
             <div className="py-2">
               <div className="flex justify-between items-center px-2 sm:px-3 mb-2">
                 <h3 className="text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider">
@@ -441,7 +455,13 @@ export function Sidebar({
               <DialogDescription>
                 Create and manage your quick notes
               </DialogDescription>
-              <QuickNotes />
+              <QuickNotes onOpenPromptDocs={() => {
+                setShowNotes(false);
+                navigate('/prompts');
+                if (window.innerWidth < 768) {
+                  setIsMobileOpen(false);
+                }
+              }} />
             </DialogContent>
           </Dialog>
         )}

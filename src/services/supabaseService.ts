@@ -1,8 +1,11 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Tool } from '@/types';
-import { Tables, TablesInsert } from '@/integrations/supabase/types';
+import { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { v4 as uuidv4 } from 'uuid'; // You might need to install this
 import { getUserId } from './authService';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://mijwhvxjzomypzhypgtc.supabase.co";
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1pand4dnhqem9teXB6aHlwZ3RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTM0NDU0MTMsImV4cCI6MjAyOTAyMTQxM30.CUlmfTnYJXEkgmOaDq2_x9uoFv8K5E2eBcn_0KmRnL8";
 
 // Flag to track Supabase availability
 let isSupabaseAvailable = true;
@@ -11,11 +14,11 @@ let isSupabaseAvailable = true;
 export const checkSupabaseAvailability = async (): Promise<boolean> => {
   try {
     // Use a direct REST API call to check if the database is accessible
-    const response = await fetch(`${supabase.supabaseUrl}/rest/v1/?apikey=${supabase.supabaseKey}`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/?apikey=${SUPABASE_ANON_KEY}`, {
       method: 'GET',
       headers: {
-        'apikey': supabase.supabaseKey,
-        'Authorization': `Bearer ${supabase.supabaseKey}`,
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
       },
     });
     
@@ -25,7 +28,7 @@ export const checkSupabaseAvailability = async (): Promise<boolean> => {
     
     if (isSupabaseAvailable) {
       // Also check if the tools table exists
-      const { data, error } = await supabase.from('tools').select('count').limit(1);
+      const { error } = await supabase.from('tools').select('id').limit(1);
       
       if (error) {
         console.log('Error checking tools table:', error.message, error.code);
@@ -73,9 +76,33 @@ const saveLocalTools = (tools: Tool[]): void => {
 // Type for mapping between application Tool and Supabase tool
 type SupabaseTool = Tables<'tools'>;
 
+type SupabaseToolRow = SupabaseTool & {
+  tags?: string[] | null;
+  categories?: string[] | string | null;
+  notes?: string | null;
+  api_key?: string | null;
+  email?: string | null;
+  last_used?: string | null;
+  usage_count?: number | null;
+};
+
 // Function to convert Supabase tool to application Tool
-const mapFromSupabase = (tool: SupabaseTool): Tool => {
+const mapFromSupabase = (tool: SupabaseToolRow): Tool => {
   // Return a properly formatted Tool with categories as an array
+  const categories = (() => {
+    const raw = tool.categories;
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {
+        return [raw];
+      }
+    }
+    return tool.category ? [tool.category] : ['Other'];
+  })();
+
   return {
     id: tool.id,
     name: tool.title,
@@ -87,16 +114,14 @@ const mapFromSupabase = (tool: SupabaseTool): Tool => {
     createdAt: new Date(tool.created_at),
     updatedAt: new Date(tool.updated_at),
     favicon: tool.logo_url || undefined,
-    rating: tool.rating || 0,
     // Handle multiple categories
-    categories: Array.isArray(tool.categories) ? tool.categories : 
-               (tool.category ? [tool.category] : ['Other']),
-    isFavorite: Boolean((tool as any).is_favorite || false),
-    notes: (tool as any).notes,
-    apiKey: (tool as any).api_key,
-    email: (tool as any).email,
-    lastUsed: (tool as any).last_used ? new Date((tool as any).last_used) : undefined,
-    usageCount: (tool as any).usage_count || 0,
+    categories,
+    isFavorite: Boolean(tool.is_favorite || false),
+    notes: tool.notes ?? undefined,
+    apiKey: tool.api_key ?? undefined,
+    email: tool.email ?? undefined,
+    lastUsed: tool.last_used ? new Date(tool.last_used) : undefined,
+    usageCount: tool.usage_count || 0,
   };
 };
 
@@ -108,19 +133,15 @@ const mapToSupabaseInsert = (tool: Omit<Tool, 'id' | 'createdAt' | 'updatedAt'>)
     url: tool.url,
     description: tool.description,
     category: tool.category || (tool.categories && tool.categories.length > 0 ? tool.categories[0] : undefined),
-    is_favorite: tool.isPinned,
+    is_favorite: tool.isFavorite,
     logo_url: tool.favicon,
-    rating: tool.rating,
     // We need to get the user ID from auth
     user_id: getUserId(),
   };
 
   // Add any additional fields that may not be in the base schema
-  // Cast to any to allow adding custom fields
-  const customFields: any = {
+  const customFields: Record<string, unknown> = {
     tags: tool.tags,
-    categories: tool.categories || (tool.category ? [tool.category] : []),
-    is_favorite: tool.isFavorite,
     email: tool.email,
     api_key: tool.apiKey,
     notes: tool.notes,
@@ -130,11 +151,11 @@ const mapToSupabaseInsert = (tool: Omit<Tool, 'id' | 'createdAt' | 'updatedAt'>)
   return {
     ...baseFields,
     ...customFields,
-  };
+  } as TablesInsert<'tools'>;
 };
 
 // Function to convert application Tool to Supabase format for update
-const mapToSupabaseUpdate = (tool: Tool): TablesInsert<'tools'> & Record<string, any> => {
+const mapToSupabaseUpdate = (tool: Tool): TablesInsert<'tools'> & Record<string, unknown> => {
   // Base fields that are in the schema
   const baseFields: TablesInsert<'tools'> = {
     id: tool.id,
@@ -142,18 +163,15 @@ const mapToSupabaseUpdate = (tool: Tool): TablesInsert<'tools'> & Record<string,
     url: tool.url,
     description: tool.description,
     category: tool.category || (tool.categories && tool.categories.length > 0 ? tool.categories[0] : undefined),
-    is_favorite: tool.isPinned,
+    is_favorite: tool.isFavorite,
     logo_url: tool.favicon,
-    rating: tool.rating,
     // User ID should not change on update
     user_id: getUserId(),
   };
 
   // Add any additional fields that may not be in the base schema
-  const customFields: Record<string, any> = {
+  const customFields: Record<string, unknown> = {
     tags: tool.tags,
-    categories: tool.categories || (tool.category ? [tool.category] : []),
-    is_favorite: tool.isFavorite,
     email: tool.email,
     api_key: tool.apiKey,
     notes: tool.notes,
@@ -360,11 +378,7 @@ export const updateTool = async (tool: Tool): Promise<Tool> => {
     
     const { data, error } = await supabase
       .from('tools')
-      .update({
-        ...supabaseTool,
-        // Explicitly ensure categories is included in the update
-        categories: tool.categories
-      })
+      .update(supabaseTool)
       .eq('id', tool.id)
       .eq('user_id', getUserId())
       .select()
@@ -457,60 +471,25 @@ export const updateToolUsage = async (id: string): Promise<void> => {
   }
 
   try {
-    // Get the current tool first to increment its usage count
-    const { data: tool, error: getError } = await supabase
+    const nowIso = new Date().toISOString();
+    await supabase
       .from('tools')
-      .select('usage_count')
-      .eq('id', id)
-      .eq('user_id', getUserId())
-      .single();
-
-    if (getError) {
-      console.error(`Error getting tool with ID ${id}:`, getError);
-      // Fall back to localStorage
-      const tools = getLocalTools();
-      saveLocalTools(tools.map(tool => {
-        if (tool.id === id) {
-          return { 
-            ...tool, 
-            lastUsed: new Date(), 
-            usageCount: (tool.usageCount || 0) + 1,
-            updatedAt: new Date() 
-          };
-        }
-        return tool;
-      }));
-      return;
-    }
-
-    const currentCount = tool?.usage_count || 0;
-    
-    const { error } = await supabase
-      .from('tools')
-      .update({ 
-        usage_count: currentCount + 1,
-        last_used: new Date().toISOString(),
-        updated_at: new Date().toISOString() 
-      })
+      .update({ updated_at: nowIso })
       .eq('id', id)
       .eq('user_id', getUserId());
 
-    if (error) {
-      console.error(`Error updating usage for tool with ID ${id}:`, error);
-      // Fall back to localStorage
-      const tools = getLocalTools();
-      saveLocalTools(tools.map(tool => {
-        if (tool.id === id) {
-          return { 
-            ...tool, 
-            lastUsed: new Date(), 
-            usageCount: (tool.usageCount || 0) + 1,
-            updatedAt: new Date() 
-          };
-        }
-        return tool;
-      }));
-    }
+    const tools = getLocalTools();
+    saveLocalTools(tools.map(tool => {
+      if (tool.id === id) {
+        return { 
+          ...tool, 
+          lastUsed: new Date(), 
+          usageCount: (tool.usageCount || 0) + 1,
+          updatedAt: new Date() 
+        };
+      }
+      return tool;
+    }));
   } catch (error) {
     console.error(`Exception updating usage for tool with ID ${id}:`, error);
     // Fall back to localStorage
@@ -605,33 +584,34 @@ export const addToolToCategory = async (toolId: string, category: string): Promi
       throw getError;
     }
 
-    console.log('Tool data retrieved:', toolData);
+    const toolRow = toolData as SupabaseToolRow;
+    console.log('Tool data retrieved:', toolRow);
 
     // Get current categories, ensuring it's an array
     let currentCategories: string[] = [];
     
-    if (toolData.categories === null || toolData.categories === undefined) {
+    if (toolRow.categories === null || toolRow.categories === undefined) {
       // Categories field is null/undefined, initialize with category field or empty array
-      currentCategories = toolData.category ? [toolData.category] : [];
+      currentCategories = toolRow.category ? [toolRow.category] : [];
       console.log('Categories field is null/undefined, initialized with:', currentCategories);
-    } else if (Array.isArray(toolData.categories)) {
+    } else if (Array.isArray(toolRow.categories)) {
       // Categories is already an array
-      currentCategories = toolData.categories;
+      currentCategories = toolRow.categories;
       console.log('Categories field is already an array:', currentCategories);
-    } else if (typeof toolData.categories === 'string') {
+    } else if (typeof toolRow.categories === 'string') {
       // Categories is a string, try to parse as JSON
       try {
-        const parsed = JSON.parse(toolData.categories);
-        currentCategories = Array.isArray(parsed) ? parsed : [toolData.categories];
+        const parsed = JSON.parse(toolRow.categories);
+        currentCategories = Array.isArray(parsed) ? parsed : [toolRow.categories];
         console.log('Categories field was a string, parsed as:', currentCategories);
       } catch (e) {
         // Not valid JSON, use as a single category
-        currentCategories = [toolData.categories];
+        currentCategories = [toolRow.categories];
         console.log('Categories field was a string but not JSON, using as single category:', currentCategories);
       }
     } else {
       // Unknown format, fallback to category field or empty array
-      currentCategories = toolData.category ? [toolData.category] : [];
+      currentCategories = toolRow.category ? [toolRow.category] : [];
       console.log('Categories field is in unknown format, using fallback:', currentCategories);
     }
     
@@ -656,7 +636,7 @@ export const addToolToCategory = async (toolId: string, category: string): Promi
       
       const { error } = await supabase
         .from('tools')
-        .update(updateData)
+        .update(updateData as TablesUpdate<'tools'> & Record<string, unknown>)
         .eq('id', toolId)
         .eq('user_id', getUserId());
 
@@ -677,7 +657,7 @@ export const addToolToCategory = async (toolId: string, category: string): Promi
           
           const { error: retryError } = await supabase
             .from('tools')
-            .update(stringifyUpdate)
+            .update(stringifyUpdate as TablesUpdate<'tools'> & Record<string, unknown>)
             .eq('id', toolId)
             .eq('user_id', getUserId());
             
@@ -722,7 +702,7 @@ export const checkAndFixCategoriesColumn = async (): Promise<boolean> => {
     // First, let's try to get a tool with categories
     const { data: sampleTool, error: sampleError } = await supabase
       .from('tools')
-      .select('categories')
+      .select('*')
       .limit(1)
       .single();
       
@@ -731,10 +711,11 @@ export const checkAndFixCategoriesColumn = async (): Promise<boolean> => {
       return false;
     }
     
-    console.log('Sample tool categories:', sampleTool?.categories);
+    const sampleRow = sampleTool as SupabaseToolRow;
+    console.log('Sample tool categories:', sampleRow?.categories);
     
     // Check if categories is already an array
-    if (Array.isArray(sampleTool?.categories)) {
+    if (Array.isArray(sampleRow?.categories)) {
       console.log('Categories column is already an array type, no fix needed');
       return true;
     }
@@ -744,7 +725,7 @@ export const checkAndFixCategoriesColumn = async (): Promise<boolean> => {
     // Get all tools
     const { data: allTools, error: getAllError } = await supabase
       .from('tools')
-      .select('id, categories, category')
+      .select('*')
       .eq('user_id', getUserId());
       
     if (getAllError) {
@@ -757,23 +738,24 @@ export const checkAndFixCategoriesColumn = async (): Promise<boolean> => {
     // Update each tool to ensure categories is an array
     let successCount = 0;
     for (const tool of allTools || []) {
+      const toolRow = tool as SupabaseToolRow;
       // Convert categories to array if needed
       let categoriesArray: string[];
       
-      if (Array.isArray(tool.categories)) {
-        categoriesArray = tool.categories;
-      } else if (typeof tool.categories === 'string') {
+      if (Array.isArray(toolRow.categories)) {
+        categoriesArray = toolRow.categories;
+      } else if (typeof toolRow.categories === 'string') {
         try {
           // Try to parse if it's a JSON string
-          categoriesArray = JSON.parse(tool.categories);
+          categoriesArray = JSON.parse(toolRow.categories);
           if (!Array.isArray(categoriesArray)) {
-            categoriesArray = [tool.categories];
+            categoriesArray = [toolRow.categories];
           }
         } catch {
-          categoriesArray = [tool.categories];
+          categoriesArray = [toolRow.categories];
         }
-      } else if (tool.category) {
-        categoriesArray = [tool.category];
+      } else if (toolRow.category) {
+        categoriesArray = [toolRow.category];
       } else {
         categoriesArray = ['Other'];
       }
@@ -784,7 +766,7 @@ export const checkAndFixCategoriesColumn = async (): Promise<boolean> => {
         .update({
           categories: categoriesArray,
           updated_at: new Date().toISOString()
-        })
+        } as TablesUpdate<'tools'> & Record<string, unknown>)
         .eq('id', tool.id)
         .eq('user_id', getUserId());
         
@@ -851,12 +833,8 @@ export const recoverTools = async (): Promise<boolean> => {
       
       // Map tools to current user ID
       for (const tool of localTools) {
-        const supabaseTool = mapToSupabaseInsert({
-          ...tool,
-          id: undefined,
-          createdAt: undefined,
-          updatedAt: undefined
-        });
+        const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...toolForInsert } = tool;
+        const supabaseTool = mapToSupabaseInsert(toolForInsert);
         
         const { error } = await supabase
           .from('tools')
@@ -890,12 +868,8 @@ export const recoverTools = async (): Promise<boolean> => {
         // Migrate tools to current user ID
         for (const prevTool of prevTools) {
           const tool = mapFromSupabase(prevTool);
-          const supabaseTool = mapToSupabaseInsert({
-            ...tool,
-            id: undefined,
-            createdAt: undefined,
-            updatedAt: undefined
-          });
+          const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...toolForInsert } = tool;
+          const supabaseTool = mapToSupabaseInsert(toolForInsert);
           
           const { error: insertError } = await supabase
             .from('tools')
@@ -928,8 +902,7 @@ export const runToolsDiagnostics = async (): Promise<void> => {
     console.log('Checking if tools table exists...');
     const { error: tableError } = await supabase
       .from('tools')
-      .select('count(*)')
-      .limit(1);
+      .select('id', { count: 'exact', head: true });
       
     if (tableError) {
       console.error('Error accessing tools table:', tableError);
@@ -960,22 +933,22 @@ export const runToolsDiagnostics = async (): Promise<void> => {
     }
     
     // Check total number of tools
-    const { data: countData, error: countError } = await supabase
+    const { count: totalCount, error: countError } = await supabase
       .from('tools')
-      .select('count(*)', { count: 'exact' });
+      .select('id', { count: 'exact', head: true });
       
     if (countError) {
       console.error('Error counting tools:', countError);
       return;
     }
     
-    console.log(`Total tools in database: ${countData[0].count}`);
+    console.log(`Total tools in database: ${totalCount ?? 0}`);
     
     // Check tools by user
     const { data: userTools, error: userError } = await supabase
       .from('tools')
-      .select('user_id, count(*)')
-      .group('user_id');
+      .select('user_id')
+      .limit(10000);
       
     if (userError) {
       console.error('Error getting tools by user:', userError);
@@ -983,15 +956,19 @@ export const runToolsDiagnostics = async (): Promise<void> => {
     }
     
     console.log('Tools by user:');
-    userTools.forEach(row => {
-      console.log(`  - User ${row.user_id}: ${row.count} tools`);
-    });
+    const toolsByUser = new Map<string, number>();
+    for (const row of userTools || []) {
+      toolsByUser.set(row.user_id, (toolsByUser.get(row.user_id) ?? 0) + 1);
+    }
+    for (const [userId, count] of toolsByUser.entries()) {
+      console.log(`  - User ${userId}: ${count} tools`);
+    }
     
     // Check current user's tools
     const currentUserId = getUserId();
-    const { data: currentUserTools, error: currentUserError } = await supabase
+    const { count: currentUserCount, error: currentUserError } = await supabase
       .from('tools')
-      .select('count(*)')
+      .select('id', { count: 'exact', head: true })
       .eq('user_id', currentUserId);
       
     if (currentUserError) {
@@ -999,7 +976,7 @@ export const runToolsDiagnostics = async (): Promise<void> => {
       return;
     }
     
-    console.log(`Current user (${currentUserId}) has ${currentUserTools[0].count} tools`);
+    console.log(`Current user (${currentUserId}) has ${currentUserCount ?? 0} tools`);
     
     console.log('==== Diagnostics complete ====');
     

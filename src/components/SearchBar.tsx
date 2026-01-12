@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Search, Plus, ExternalLink, Loader2, Globe, Code, Palette, Server, 
   Wrench, Rocket, Zap, GraduationCap, Folder, X } from 'lucide-react';
 import { searchTools } from '@/services/aiService';
+import type { AIGeneratedTool } from '@/services/aiService';
 import { Tool } from '@/types';
 import { useDebounce } from '@/hooks/useDebounce';
 import { toast } from '@/hooks/use-toast';
@@ -28,7 +29,7 @@ export function SearchBar({
   const [isApiLoading, setIsApiLoading] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [localResults, setLocalResults] = useState<Tool[]>([]);
-  const [apiResults, setApiResults] = useState<any[]>([]);
+  const [apiResults, setApiResults] = useState<AIGeneratedTool[]>([]);
   const debouncedQuery = useDebounce(query, 500);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { currentProvider } = useAIProvider();
@@ -56,14 +57,14 @@ export function SearchBar({
     const filtered = tools.filter(tool => 
       tool.name.toLowerCase().includes(searchTerm) ||
       tool.description?.toLowerCase().includes(searchTerm) ||
-      tool.tags.some(tag => tag.toLowerCase().includes(searchTerm)) ||
-      tool.url.toLowerCase().includes(searchTerm) ||
+      (tool.tags ?? []).some(tag => tag.toLowerCase().includes(searchTerm)) ||
+      (tool.url ?? '').toLowerCase().includes(searchTerm) ||
       tool.notes?.toLowerCase().includes(searchTerm)
     );
 
     setLocalResults(filtered.slice(0, 5)); // Limit to top 5 results
     setIsDropdownOpen(filtered.length > 0 || isApiLoading);
-  }, [query, tools]);
+  }, [isApiLoading, query, tools]);
 
   // Debounced API search
   useEffect(() => {
@@ -112,7 +113,7 @@ export function SearchBar({
     };
 
     fetchSearchResults();
-  }, [debouncedQuery, tools]);
+  }, [currentProvider, debouncedQuery, localResults.length, tools]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -218,14 +219,22 @@ export function SearchBar({
                         </div>
                         <h4 className="font-medium text-sm sm:text-base text-foreground">{tool.name}</h4>
                       </div>
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <div className="text-xs text-muted-foreground flex items-center gap-1 bg-muted/30 px-1.5 py-0.5 rounded">
-                          {getCategoryIcon(tool.category)}
-                          {tool.category}
-                        </div>
-                        <span className="text-xs text-muted-foreground">•</span>
-                        <p className="text-xs text-muted-foreground truncate">{new URL(tool.url).hostname}</p>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <div className="text-xs text-muted-foreground flex items-center gap-1 bg-muted/30 px-1.5 py-0.5 rounded">
+                        {getCategoryIcon(tool.category)}
+                        {tool.category}
                       </div>
+                      <span className="text-xs text-muted-foreground">•</span>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {(() => {
+                          try {
+                            return new URL(tool.url).hostname;
+                          } catch {
+                            return tool.url;
+                          }
+                        })()}
+                      </p>
+                    </div>
                       <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{tool.description}</p>
                     </div>
                     <div className="flex-shrink-0">
@@ -301,7 +310,9 @@ export function SearchBar({
                             url: result.url,
                             description: result.description,
                             category: result.category || 'Other',
+                            categories: [result.category || 'Other'],
                             tags: result.tags || [],
+                            isFavorite: false,
                           });
                           setIsDropdownOpen(false);
                         }}

@@ -16,7 +16,7 @@ import {
   type AIProvider
 } from '@/services/aiService';
 import { toast } from '@/hooks/use-toast';
-import { SmartInputParser } from './SmartInputParser';
+import { SmartInputParser, type ParsedTool } from './SmartInputParser';
 import {
   Popover,
   PopoverContent,
@@ -127,7 +127,7 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSmartParse = (parsed: any) => {
+  const handleSmartParse = (parsed: ParsedTool) => {
     setFormData(prev => ({
       ...prev,
       name: parsed.name || prev.name,

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from './ui/badge';
 import { toast } from '@/hooks/use-toast';
+import type { AIProvider } from '@/services/aiService';
 
 interface AIModelSelectorProps {
   variant?: 'default' | 'sidebar';
@@ -50,7 +51,7 @@ export function AIModelSelector({ variant = 'default' }: AIModelSelectorProps) {
   };
   
   const handleProviderChange = (providerId: string) => {
-    setCurrentProvider(providerId as any);
+    setCurrentProvider(providerId as AIProvider);
     toast({
       title: 'AI Provider Changed',
       description: `Now using ${getProviderDisplayName(providerId)} for AI operations`,

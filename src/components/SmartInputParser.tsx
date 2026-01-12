@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Sparkles, Wand2 } from 'lucide-react';
 
-interface ParsedTool {
+export type ParsedTool = {
   name: string;
   url: string;
   description: string;

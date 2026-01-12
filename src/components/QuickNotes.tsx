@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { StickyNote, Plus, X, Tag } from 'lucide-react';
+import { FileText, Plus, StickyNote, Tag, X } from 'lucide-react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 
 interface Note {
@@ -14,7 +14,7 @@ interface Note {
   linkedTools?: string[];
 }
 
-export function QuickNotes() {
+export function QuickNotes({ onOpenPromptDocs }: { onOpenPromptDocs?: () => void }) {
   const [notes, setNotes] = useLocalStorage<Note[]>('dev-dashboard-notes', []);
   const [newNote, setNewNote] = useState('');
   const [newTag, setNewTag] = useState('');
@@ -64,14 +64,22 @@ export function QuickNotes() {
           <StickyNote className="h-6 w-6" />
           Quick Notes & Scratchpad
         </h2>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsAdding(!isAdding)}
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          {isAdding ? 'Cancel' : 'Add Note'}
-        </Button>
+        <div className="flex items-center gap-2">
+          {onOpenPromptDocs && (
+            <Button variant="outline" size="sm" onClick={onOpenPromptDocs}>
+              <FileText className="h-4 w-4 mr-1" />
+              Prompt / Docs
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsAdding(!isAdding)}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            {isAdding ? 'Cancel' : 'Add Note'}
+          </Button>
+        </div>
       </div>
       <div className="space-y-4">
         {isAdding && (
