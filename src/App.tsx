@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
 import PromptDocs from "./pages/PromptDocs";
+import Workbench from "./pages/Workbench";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { MigrationPrompt } from "./components/MigrationPrompt";
 import { testSupabaseConnection } from "./utils/supabaseTest";
@@ -261,6 +262,7 @@ const App = () => {
             <Route path="/" element={<Index />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/prompts" element={<PromptDocs />} />
+            <Route path="/workbench" element={<Workbench />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

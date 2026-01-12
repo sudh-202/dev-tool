@@ -16,6 +16,10 @@ import {
   BookmarkCheck, 
   LayoutGrid, 
   Code, 
+  Image,
+  PenTool,
+  ArrowRightLeft,
+  ListTodo,
 
   Server, 
   Palette, 
@@ -290,6 +294,76 @@ export function Sidebar({
             >
               <Newspaper className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0 text-sidebar-foreground" />
               <span className="text-sidebar-foreground truncate">Prompt / Docs</span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="w-full justify-start h-9 px-2 sm:px-3 font-normal text-sm"
+              onClick={() => {
+                navigate('/workbench?tab=images');
+                if (window.innerWidth < 768) {
+                  setIsMobileOpen(false);
+                }
+              }}
+            >
+              <Image className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0 text-sidebar-foreground" />
+              <span className="text-sidebar-foreground truncate">Images</span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="w-full justify-start h-9 px-2 sm:px-3 font-normal text-sm"
+              onClick={() => {
+                navigate('/workbench?tab=handwriting');
+                if (window.innerWidth < 768) {
+                  setIsMobileOpen(false);
+                }
+              }}
+            >
+              <PenTool className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0 text-sidebar-foreground" />
+              <span className="text-sidebar-foreground truncate">Handwriting</span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="w-full justify-start h-9 px-2 sm:px-3 font-normal text-sm"
+              onClick={() => {
+                navigate('/workbench?tab=convert');
+                if (window.innerWidth < 768) {
+                  setIsMobileOpen(false);
+                }
+              }}
+            >
+              <ArrowRightLeft className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0 text-sidebar-foreground" />
+              <span className="text-sidebar-foreground truncate">Convert</span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="w-full justify-start h-9 px-2 sm:px-3 font-normal text-sm"
+              onClick={() => {
+                navigate('/workbench?tab=code');
+                if (window.innerWidth < 768) {
+                  setIsMobileOpen(false);
+                }
+              }}
+            >
+              <Code className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0 text-sidebar-foreground" />
+              <span className="text-sidebar-foreground truncate">Code Vault</span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="w-full justify-start h-9 px-2 sm:px-3 font-normal text-sm"
+              onClick={() => {
+                navigate('/workbench?tab=tasks');
+                if (window.innerWidth < 768) {
+                  setIsMobileOpen(false);
+                }
+              }}
+            >
+              <ListTodo className="h-4 w-4 mr-1.5 sm:mr-2 flex-shrink-0 text-sidebar-foreground" />
+              <span className="text-sidebar-foreground truncate">Tasks</span>
             </Button>
 
             <div className="py-2">
