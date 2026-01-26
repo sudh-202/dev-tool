@@ -12,6 +12,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 // import { Logo } from '@/components/Logo';
 import { QuickNotes } from "@/components/QuickNotes";
 import { Button } from "@/components/ui/button";
+import { MostUsedTools } from "@/components/MostUsedTools";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -257,8 +258,8 @@ const Index = () => {
         const toolCategories = tool.categories?.length
           ? tool.categories
           : tool.category
-          ? [tool.category]
-          : ["Uncategorized"];
+            ? [tool.category]
+            : ["Uncategorized"];
 
         // Add the tool to each of its categories
         toolCategories.forEach((category) => {
@@ -298,8 +299,8 @@ const Index = () => {
       const toolCategories = tool.categories?.length
         ? tool.categories
         : tool.category
-        ? [tool.category]
-        : ["Uncategorized"];
+          ? [tool.category]
+          : ["Uncategorized"];
       toolCategories.forEach((category) => categorySet.add(category));
     });
     return Array.from(categorySet).sort();
@@ -328,8 +329,8 @@ const Index = () => {
       const toolCategories = tool.categories?.length
         ? tool.categories
         : tool.category
-        ? [tool.category]
-        : ["Uncategorized"];
+          ? [tool.category]
+          : ["Uncategorized"];
       toolCategories.forEach((category) => categorySet.add(category));
     });
     return categorySet.size;
@@ -339,7 +340,7 @@ const Index = () => {
     (tool) =>
       tool.lastUsed &&
       new Date().getTime() - new Date(tool.lastUsed).getTime() <
-        7 * 24 * 60 * 60 * 1000
+      7 * 24 * 60 * 60 * 1000
   ).length;
 
   const handleSaveTool = async (
@@ -678,14 +679,14 @@ const Index = () => {
                   {selectedCategory === "all"
                     ? "All Tools"
                     : selectedCategory === "pinned"
-                    ? "Pinned Tools"
-                    : selectedCategory === "favorites"
-                    ? "Favorites"
-                    : selectedCategory === "categories"
-                    ? "Categories"
-                    : selectedCategory === "recently-used"
-                    ? "Recently Used"
-                    : selectedCategory}
+                      ? "Pinned Tools"
+                      : selectedCategory === "favorites"
+                        ? "Favorites"
+                        : selectedCategory === "categories"
+                          ? "Categories"
+                          : selectedCategory === "recently-used"
+                            ? "Recently Used"
+                            : selectedCategory}
                 </h2>
                 <p className="text-sm text-muted-foreground text-center md:text-left">
                   {filteredTools.length} tool
@@ -775,9 +776,8 @@ const Index = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className={`h-8 px-3 rounded-none ${
-                        viewMode === "grid" ? "bg-muted" : ""
-                      }`}
+                      className={`h-8 px-3 rounded-none ${viewMode === "grid" ? "bg-muted" : ""
+                        }`}
                       onClick={() => setViewMode("grid")}
                     >
                       <Grid className="h-4 w-4" />
@@ -785,9 +785,8 @@ const Index = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className={`h-8 px-3 rounded-none ${
-                        viewMode === "list" ? "bg-muted" : ""
-                      }`}
+                      className={`h-8 px-3 rounded-none ${viewMode === "list" ? "bg-muted" : ""
+                        }`}
                       onClick={() => setViewMode("list")}
                     >
                       <List className="h-4 w-4" />
@@ -833,9 +832,8 @@ const Index = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className={`h-8 px-2 rounded-none ${
-                    viewMode === "grid" ? "bg-muted" : ""
-                  }`}
+                  className={`h-8 px-2 rounded-none ${viewMode === "grid" ? "bg-muted" : ""
+                    }`}
                   onClick={() => setViewMode("grid")}
                 >
                   <Grid className="h-3 w-3" />
@@ -843,9 +841,8 @@ const Index = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className={`h-8 px-2 rounded-none ${
-                    viewMode === "list" ? "bg-muted" : ""
-                  }`}
+                  className={`h-8 px-2 rounded-none ${viewMode === "list" ? "bg-muted" : ""
+                    }`}
                   onClick={() => setViewMode("list")}
                 >
                   <List className="h-3 w-3" />
@@ -896,6 +893,20 @@ const Index = () => {
                 tools={tools}
               />
 
+              {/* Most Used Tools Section */}
+              {!loading && !error && !searchQuery && selectedCategory === 'all' && (
+                <MostUsedTools
+                  tools={tools}
+                  onToolClick={handleToolClick}
+                  onEdit={handleEditTool}
+                  onDelete={handleDeleteTool}
+                  onTogglePin={handleTogglePin}
+                  onToggleFavorite={handleToggleFavorite}
+                  onAddToCategory={handleAddToolToCategory}
+                  availableCategories={allCategoryNames}
+                />
+              )}
+
               {/* Tags filter */}
               <div className="mb-4">
                 <div className="text-sm font-medium mb-2">Filter by tags:</div>
@@ -906,11 +917,10 @@ const Index = () => {
                       variant={
                         selectedTags.includes(tag) ? "default" : "outline"
                       }
-                      className={`cursor-pointer ${
-                        selectedTags.includes(tag)
+                      className={`cursor-pointer ${selectedTags.includes(tag)
                           ? ""
                           : "text-muted-foreground"
-                      }`}
+                        }`}
                       onClick={() => {
                         if (selectedTags.includes(tag)) {
                           setSelectedTags(
@@ -960,10 +970,9 @@ const Index = () => {
                           <p className="text-xs text-muted-foreground">
                             {selectedCategoryFilter === "all"
                               ? `Showing all categories (${filteredTools.length} tools)`
-                              : `Showing ${selectedCategoryFilter} (${
-                                  filteredGroupedTools[selectedCategoryFilter]
-                                    ?.length || 0
-                                } tools)`}
+                              : `Showing ${selectedCategoryFilter} (${filteredGroupedTools[selectedCategoryFilter]
+                                ?.length || 0
+                              } tools)`}
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-2">
