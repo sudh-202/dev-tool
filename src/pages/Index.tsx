@@ -38,6 +38,7 @@ import {
   checkAndFixCategoriesColumn,
 } from "@/services/supabaseService";
 import { exportToolsAsCSV, exportToolsAsJSON } from "@/utils/exportUtils";
+import { importToolsFromCSV, importToolsFromJSON } from "@/utils/importUtils";
 
 const defaultCategories = [
   "Frontend",
@@ -142,6 +143,62 @@ const Index = () => {
       (category) => !deletedCategories.includes(category) // Filter out deleted categories
     );
   }, [customCategories, deletedCategories]);
+
+  // Import functionality
+  const [importType, setImportType] = useState<'csv' | 'json' | null>(null);
+
+  const handleImportClick = (type: 'csv' | 'json') => {
+    setImportType(type);
+    const fileInput = document.getElementById('import-file-input');
+    if (fileInput) {
+      (fileInput as HTMLInputElement).click();
+    }
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !importType) return;
+
+    try {
+      let importedTools: any[] = [];
+
+      if (importType === 'csv') {
+        importedTools = await importToolsFromCSV(file);
+      } else {
+        importedTools = await importToolsFromJSON(file);
+      }
+
+      if (importedTools.length === 0) {
+        toast({
+          title: "No tools found",
+          description: "No valid tools were found in the imported file.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Add imported tools
+      await addMultipleTools(importedTools);
+
+      toast({
+        title: "Import Successful",
+        description: `Successfully imported ${importedTools.length} tools.`,
+      });
+
+      // Reset input
+      event.target.value = '';
+      setImportType(null);
+    } catch (err) {
+      console.error("Import failed:", err);
+      toast({
+        title: "Import Failed",
+        description: err instanceof Error ? err.message : "Failed to import tools.",
+        variant: "destructive",
+      });
+      event.target.value = '';
+      setImportType(null);
+    }
+  };
 
   const categories: Category[] = useMemo(() => {
     const categoryMap = new Map<string, number>();
@@ -731,8 +788,8 @@ const Index = () => {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm" className="text-xs">
-                          <Download className="h-3 w-3" />
-                          Export
+                          <Download className="h-3 w-3 mr-1" />
+                          Manage
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="w-56">
@@ -745,6 +802,17 @@ const Index = () => {
                           onClick={() => exportToolsAsJSON(tools)}
                         >
                           Export Tools (JSON)
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleImportClick('csv')}
+                        >
+                          Import Tools (CSV)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleImportClick('json')}
+                        >
+                          Import Tools (JSON)
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         {/* <DropdownMenuItem 
@@ -858,7 +926,7 @@ const Index = () => {
                     title="Export tools"
                   >
                     <Download className="h-3 w-3" />
-                    <span className="hidden sm:inline">Export</span>
+                    <span className="hidden sm:inline">Manage</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-44">
@@ -867,6 +935,13 @@ const Index = () => {
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => exportToolsAsJSON(tools)}>
                     Export JSON
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleImportClick('csv')}>
+                    Import CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleImportClick('json')}>
+                    Import JSON
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -918,8 +993,8 @@ const Index = () => {
                         selectedTags.includes(tag) ? "default" : "outline"
                       }
                       className={`cursor-pointer ${selectedTags.includes(tag)
-                          ? ""
-                          : "text-muted-foreground"
+                        ? ""
+                        : "text-muted-foreground"
                         }`}
                       onClick={() => {
                         if (selectedTags.includes(tag)) {
@@ -1156,6 +1231,15 @@ const Index = () => {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Hidden file input for imports */}
+      <input
+        type="file"
+        id="import-file-input"
+        className="hidden"
+        accept={importType === 'csv' ? ".csv" : ".json"}
+        onChange={handleFileChange}
+      />
     </div>
   );
 };
