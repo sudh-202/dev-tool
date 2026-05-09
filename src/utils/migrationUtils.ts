@@ -1,7 +1,4 @@
-import { Tool } from '@/types';
-import { createMultipleTools } from '@/services/supabaseService';
-import { supabase } from '@/integrations/supabase/client';
-import { getAllTools, createTool } from '@/services/supabaseService';
+import { createMultipleTools, getAllTools } from '@/services/supabaseService';
 
 /**
  * Check if migration from localStorage to Supabase is needed

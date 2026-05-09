@@ -1,55 +1,29 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Tool } from '@/types';
 import { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
-import { v4 as uuidv4 } from 'uuid'; // You might need to install this
+import { v4 as uuidv4 } from 'uuid';
 import { getUserId } from './authService';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://mijwhvxjzomypzhypgtc.supabase.co";
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1pand4dnhqem9teXB6aHlwZ3RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTM0NDU0MTMsImV4cCI6MjAyOTAyMTQxM30.CUlmfTnYJXEkgmOaDq2_x9uoFv8K5E2eBcn_0KmRnL8";
+let isDbAvailable = true;
 
-// Flag to track Supabase availability
-let isSupabaseAvailable = true;
-
-// Function to check if Supabase is available
 export const checkSupabaseAvailability = async (): Promise<boolean> => {
   try {
-    // Use a direct REST API call to check if the database is accessible
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/?apikey=${SUPABASE_ANON_KEY}`, {
-      method: 'GET',
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-    });
-    
-    // If the API responds with a 200 status, we consider Supabase available
-    isSupabaseAvailable = response.status === 200;
-    console.log(`Supabase API check: ${isSupabaseAvailable ? 'Available' : 'Unavailable'}`);
-    
-    if (isSupabaseAvailable) {
-      // Also check if the tools table exists
-      const { error } = await supabase.from('tools').select('id').limit(1);
-      
-      if (error) {
-        console.log('Error checking tools table:', error.message, error.code);
-        // Only consider the table missing if we get the specific "relation does not exist" error
-        if (error.code === '42P01') { // Table doesn't exist error
-          console.log('Supabase connection available but tools table does not exist');
-          console.log('Falling back to localStorage until database is set up');
-          isSupabaseAvailable = false;
-        } else {
-          // For other errors, we might still be able to use Supabase
-          console.log('Encountered database error, but will try to use Supabase anyway');
-        }
+    const { error } = await supabase.from('tools').select('id').limit(1);
+    if (error) {
+      if (error.code === '42P01') {
+        console.log('Neon: tools table does not exist yet — falling back to localStorage');
+        isDbAvailable = false;
       } else {
-        console.log('Tools table exists and is accessible');
+        console.log('Neon DB error (will still try to use it):', error.message);
       }
+    } else {
+      isDbAvailable = true;
+      console.log('Neon DB: tools table accessible');
     }
-    
-    return isSupabaseAvailable;
+    return isDbAvailable;
   } catch (error) {
-    console.error('Supabase availability check failed:', error);
-    isSupabaseAvailable = false;
+    console.error('Neon DB availability check failed:', error);
+    isDbAvailable = false;
     return false;
   }
 };

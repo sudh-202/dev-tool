@@ -12,6 +12,16 @@ dist
 dist-ssr
 *.local
 
+# Environment variables — never commit secrets; use .env.example for templates
+.env
+.env.*
+!.env.example
+
+# Database exports — may contain API keys and personal data
+supabase_export*.sql
+*_export.sql
+*_dump.sql
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

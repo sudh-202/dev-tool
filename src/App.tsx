@@ -13,10 +13,8 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { MigrationPrompt } from "./components/MigrationPrompt";
 import { testSupabaseConnection } from "./utils/supabaseTest";
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { DatabaseSetupHelper } from "./components/DatabaseSetupHelper";
-import { getAllTools } from "./services/supabaseService";
-import { getUserId, migrateAnonymousTools } from "./services/authService";
+import { initAuth, migrateAnonymousTools } from "./services/authService";
 import { checkMigrationNeeded } from "./utils/migrationUtils";
 import { Button } from "@/components/ui/button";
 import { AIProviderProvider } from "@/contexts/AIProviderContext";
@@ -47,12 +45,11 @@ const App = () => {
   }, [showDevTools]);
 
   useEffect(() => {
-    // Test Supabase connection
+    // Test Neon DB connection
     const testConnection = async () => {
-      console.log("============== SUPABASE CONNECTION TEST ==============");
-      // console.log("Supabase URL:", supabase.supabaseUrl);
-      // console.log("API key length:", supabase.supabaseKey.length);
-      console.log("Testing Supabase connection...");
+      console.log("============== NEON DB CONNECTION TEST ==============");
+      await initAuth();
+      console.log("Testing Neon DB connection...");
       
       // Simulate a minimum loading time for the animation to be seen
       const minLoadTime = new Promise(resolve => setTimeout(resolve, 1500));
@@ -66,7 +63,7 @@ const App = () => {
         console.log("Connection test result:", result);
         
         if (result.needsSetup) {
-          console.log("Supabase needs setup. Database tables missing.");
+          console.log("Neon DB needs setup. Database tables missing.");
           setShowDbSetup(true);
         } else {
           console.log("Database appears to be properly set up.");
@@ -86,17 +83,17 @@ const App = () => {
         }
         
         if (!result.success) {
-          console.error("Failed to connect to Supabase. Check your configuration.");
-          setSupabaseError("Failed to connect to Supabase. Check console for details.");
+          console.error("Failed to connect to Neon DB. Check your configuration.");
+          setSupabaseError("Failed to connect to Neon DB. Check console for details.");
           toast({
-            title: "Supabase Connection Error",
+            title: "Neon DB Connection Error",
             description: "Failed to connect to the database. Using local storage instead.",
             variant: "destructive",
           });
         } else if (!result.needsSetup) {
-          console.log("Supabase connection test passed!");
+          console.log("Neon DB connection test passed!");
           toast({
-            title: "Connected to Supabase",
+            title: "Connected to Neon DB",
             description: "Database connection established successfully.",
           });
           
@@ -116,12 +113,12 @@ const App = () => {
           }
         }
       } catch (error) {
-        console.error("Error testing Supabase connection:", error);
-        setSupabaseError("Error testing Supabase connection. Check console for details.");
+        console.error("Error testing Neon DB connection:", error);
+        setSupabaseError("Error testing Neon DB connection. Check console for details.");
       } finally {
         setIsLoading(false);
       }
-      console.log("==================================================");
+      console.log("=====================================================");
     };
 
     testConnection();
@@ -129,7 +126,7 @@ const App = () => {
 
   // Function to force a connection recheck
   const recheckConnection = async () => {
-    console.log("Rechecking Supabase connection...");
+    console.log("Rechecking Neon DB connection...");
     setIsLoading(true);
     try {
       const result = await testSupabaseConnection();
@@ -148,7 +145,7 @@ const App = () => {
       if (result.success && !result.needsSetup) {
         toast({
           title: "Database Connected",
-          description: "Successfully connected to Supabase database.",
+          description: "Successfully connected to Neon database.",
         });
       }
     } catch (error) {
@@ -185,7 +182,7 @@ const App = () => {
             <DialogContent className="sm:max-w-md">
               <DialogTitle>Migrate Your Tools</DialogTitle>
               <DialogDescription>
-                Migrate your existing tools from localStorage to your Supabase database
+                Migrate your existing tools from localStorage to your Neon database
               </DialogDescription>
               <MigrationPrompt onComplete={() => {
                 setShowMigration(false);
@@ -198,7 +195,7 @@ const App = () => {
             <DialogContent className="sm:max-w-2xl">
               <DialogTitle>Database Setup Required</DialogTitle>
               <DialogDescription>
-                Your Supabase database needs setup before you can use it
+                Your Neon database needs setup before you can use it
               </DialogDescription>
               <DatabaseSetupHelper 
                 onComplete={() => setShowDbSetup(false)} 
