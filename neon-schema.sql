@@ -174,3 +174,52 @@ CREATE TABLE IF NOT EXISTS public.tasks (
     due_date TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- User Settings table
+CREATE TABLE IF NOT EXISTS public.user_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id TEXT NOT NULL UNIQUE,
+    openai_api_key TEXT,
+    openai7_api_key TEXT,
+    gemini_api_key TEXT,
+    anthropic_api_key TEXT,
+    anthropicclaude_api_key TEXT,
+    groq_api_key TEXT,
+    stabilityai_api_key TEXT,
+    replicate_api_key TEXT,
+    openrouter_api_key TEXT,
+    huggingface_api_key TEXT,
+    googleai_api_key TEXT,
+    deepseek_api_key TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE public.user_settings ENABLE ROW LEVEL SECURITY;
+
+-- Policy for select
+CREATE POLICY "Users can view their own settings"
+ON public.user_settings
+FOR SELECT
+USING (auth.uid()::text = user_id OR user_id = 'anonymous');
+
+-- Policy for insert
+CREATE POLICY "Users can insert their own settings"
+ON public.user_settings
+FOR INSERT
+WITH CHECK (auth.uid()::text = user_id OR user_id = 'anonymous');
+
+-- Policy for update
+CREATE POLICY "Users can update their own settings"
+ON public.user_settings
+FOR UPDATE
+USING (auth.uid()::text = user_id OR user_id = 'anonymous');
+
+-- Policy for delete
+CREATE POLICY "Users can delete their own settings"
+ON public.user_settings
+FOR DELETE
+USING (auth.uid()::text = user_id OR user_id = 'anonymous');
+
+CREATE INDEX IF NOT EXISTS user_settings_user_id_idx ON public.user_settings (user_id);

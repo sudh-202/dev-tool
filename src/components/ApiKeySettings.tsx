@@ -1,843 +1,403 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Eye, EyeOff, Save, Trash2 } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Eye, EyeOff, Save, Trash2, CheckCircle2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { getUserSettings, updateApiKey, deleteApiKey } from '@/services/userSettingsService';
 import { useAIProvider } from '@/contexts/AIProviderContext';
 import { AIProvider } from '@/services/aiService';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+// ── Provider catalogue ────────────────────────────────────────────────────────
+interface ProviderMeta {
+  id: AIProvider;
+  label: string;
+  group: string;
+  placeholder: string;
+  docsUrl: string;
+  docsLabel: string;
+  settingsKey: keyof SavedKeys;
+}
+
+type SavedKeys = {
+  openai: string;
+  openai7: string;
+  gemini: string;
+  anthropic: string;
+  anthropicclaude: string;
+  groq: string;
+  stabilityai: string;
+  replicate: string;
+  openrouter: string;
+  huggingface: string;
+  deepseek: string;
+};
+
+const ALL_PROVIDERS: ProviderMeta[] = [
+  // Google / Gemini  (single entry — "Google AI" & "Gemini" share the same API)
+  {
+    id: 'gemini',
+    label: 'Google Gemini',
+    group: 'Google',
+    placeholder: 'AIzaSy… or AQ.Ab…',
+    docsUrl: 'https://aistudio.google.com/app/apikey',
+    docsLabel: 'Google AI Studio',
+    settingsKey: 'gemini',
+  },
+  // OpenAI
+  {
+    id: 'openai',
+    label: 'OpenAI GPT-4',
+    group: 'OpenAI',
+    placeholder: 'sk-…',
+    docsUrl: 'https://platform.openai.com/api-keys',
+    docsLabel: 'OpenAI dashboard',
+    settingsKey: 'openai',
+  },
+  {
+    id: 'openai7',
+    label: 'OpenAI GPT-3.5',
+    group: 'OpenAI',
+    placeholder: 'sk-…',
+    docsUrl: 'https://platform.openai.com/api-keys',
+    docsLabel: 'OpenAI dashboard',
+    settingsKey: 'openai7',
+  },
+  // Anthropic
+  {
+    id: 'anthropic',
+    label: 'Claude (Anthropic)',
+    group: 'Anthropic',
+    placeholder: 'sk-ant-…',
+    docsUrl: 'https://console.anthropic.com/settings/keys',
+    docsLabel: 'Anthropic Console',
+    settingsKey: 'anthropic',
+  },
+  {
+    id: 'anthropicclaude',
+    label: 'Claude 3',
+    group: 'Anthropic',
+    placeholder: 'sk-ant-…',
+    docsUrl: 'https://console.anthropic.com/settings/keys',
+    docsLabel: 'Anthropic Console',
+    settingsKey: 'anthropicclaude',
+  },
+  // Others
+  {
+    id: 'groq',
+    label: 'Groq',
+    group: 'Other Providers',
+    placeholder: 'gsk_…',
+    docsUrl: 'https://console.groq.com/keys',
+    docsLabel: 'Groq Console',
+    settingsKey: 'groq',
+  },
+  {
+    id: 'openrouter',
+    label: 'OpenRouter',
+    group: 'Other Providers',
+    placeholder: 'sk-or-…',
+    docsUrl: 'https://openrouter.ai/keys',
+    docsLabel: 'OpenRouter dashboard',
+    settingsKey: 'openrouter',
+  },
+  {
+    id: 'replicate',
+    label: 'Replicate',
+    group: 'Other Providers',
+    placeholder: 'r8_…',
+    docsUrl: 'https://replicate.com/account/api-tokens',
+    docsLabel: 'Replicate dashboard',
+    settingsKey: 'replicate',
+  },
+  {
+    id: 'stabilityai',
+    label: 'StabilityAI',
+    group: 'Other Providers',
+    placeholder: 'sk-…',
+    docsUrl: 'https://platform.stability.ai/account/keys',
+    docsLabel: 'StabilityAI dashboard',
+    settingsKey: 'stabilityai',
+  },
+  {
+    id: 'huggingface',
+    label: 'HuggingFace',
+    group: 'Other Providers',
+    placeholder: 'hf_…',
+    docsUrl: 'https://huggingface.co/settings/tokens',
+    docsLabel: 'HuggingFace dashboard',
+    settingsKey: 'huggingface',
+  },
+  {
+    id: 'deepseek',
+    label: 'DeepSeek',
+    group: 'Other Providers',
+    placeholder: 'sk-…',
+    docsUrl: 'https://platform.deepseek.com/',
+    docsLabel: 'DeepSeek platform',
+    settingsKey: 'deepseek',
+  },
+];
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export function ApiKeySettings() {
-  const [openaiKey, setOpenaiKey] = useState('');
-  const [openai7Key, setOpenai7Key] = useState('');
-  const [geminiKey, setGeminiKey] = useState('');
-  const [anthropicKey, setAnthropicKey] = useState('');
-  const [anthropicclaudeKey, setAnthropicclaudeKey] = useState('');
-  const [groqKey, setGroqKey] = useState('');
-  const [stabilityaiKey, setStabilityaiKey] = useState('');
-  const [replicateKey, setReplicateKey] = useState('');
-  const [openrouterKey, setOpenrouterKey] = useState('');
-  const [huggingfaceKey, setHuggingfaceKey] = useState('');
-  const [googleaiKey, setGoogleaiKey] = useState('');
-  const [deepseekKey, setDeepseekKey] = useState('');
-  
-  const [showOpenaiKey, setShowOpenaiKey] = useState(false);
-  const [showOpenai7Key, setShowOpenai7Key] = useState(false);
-  const [showGeminiKey, setShowGeminiKey] = useState(false);
-  const [showAnthropicKey, setShowAnthropicKey] = useState(false);
-  const [showAnthropicclaudeKey, setShowAnthropicclaudeKey] = useState(false);
-  const [showGroqKey, setShowGroqKey] = useState(false);
-  const [showStabilityaiKey, setShowStabilityaiKey] = useState(false);
-  const [showReplicateKey, setShowReplicateKey] = useState(false);
-  const [showOpenrouterKey, setShowOpenrouterKey] = useState(false);
-  const [showHuggingfaceKey, setShowHuggingfaceKey] = useState(false);
-  const [showGoogleaiKey, setShowGoogleaiKey] = useState(false);
-  const [showDeepseekKey, setShowDeepseekKey] = useState(false);
-  
+  const [keys, setKeys] = useState<SavedKeys>({
+    openai: '', openai7: '', gemini: '',
+    anthropic: '', anthropicclaude: '', groq: '',
+    stabilityai: '', replicate: '', openrouter: '',
+    huggingface: '', deepseek: '',
+  });
+
+  const [showKey, setShowKey] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
-  const [selectedProvider, setSelectedProvider] = useState<AIProvider>('openai');
-  const { availableProviders, setCurrentProvider } = useAIProvider();
+  const [selectedProvider, setSelectedProvider] = useState<AIProvider>('gemini');
 
-  // Load existing API keys
+  const { refreshProviders } = useAIProvider();
+
+  // ── Load saved keys ──────────────────────────────────────────────────────
   useEffect(() => {
-    const loadSettings = async () => {
+    const load = async () => {
       try {
         const settings = await getUserSettings();
         if (settings) {
-          if (settings.openai_api_key) setOpenaiKey(settings.openai_api_key);
-          if (settings.openai7_api_key) setOpenai7Key(settings.openai7_api_key);
-          if (settings.gemini_api_key) setGeminiKey(settings.gemini_api_key);
-          if (settings.anthropic_api_key) setAnthropicKey(settings.anthropic_api_key);
-          if (settings.anthropicclaude_api_key) setAnthropicclaudeKey(settings.anthropicclaude_api_key);
-          if (settings.groq_api_key) setGroqKey(settings.groq_api_key);
-          if (settings.stabilityai_api_key) setStabilityaiKey(settings.stabilityai_api_key);
-          if (settings.replicate_api_key) setReplicateKey(settings.replicate_api_key);
-          if (settings.openrouter_api_key) setOpenrouterKey(settings.openrouter_api_key);
-          if (settings.huggingface_api_key) setHuggingfaceKey(settings.huggingface_api_key);
-          if (settings.googleai_api_key) setGoogleaiKey(settings.googleai_api_key);
-          if (settings.deepseek_api_key) setDeepseekKey(settings.deepseek_api_key);
+          const next: SavedKeys = { ...keys };
+          if (settings.openai_api_key)         next.openai        = settings.openai_api_key;
+          if (settings.openai7_api_key)        next.openai7       = settings.openai7_api_key;
+          if (settings.gemini_api_key)         next.gemini        = settings.gemini_api_key;
+          if (settings.anthropic_api_key)      next.anthropic     = settings.anthropic_api_key;
+          if (settings.anthropicclaude_api_key) next.anthropicclaude = settings.anthropicclaude_api_key;
+          if (settings.groq_api_key)           next.groq          = settings.groq_api_key;
+          if (settings.stabilityai_api_key)    next.stabilityai   = settings.stabilityai_api_key;
+          if (settings.replicate_api_key)      next.replicate     = settings.replicate_api_key;
+          if (settings.openrouter_api_key)     next.openrouter    = settings.openrouter_api_key;
+          if (settings.huggingface_api_key)    next.huggingface   = settings.huggingface_api_key;
+          if (settings.deepseek_api_key)       next.deepseek      = settings.deepseek_api_key;
+          setKeys(next);
+
+          // Auto-select the first provider that already has a key saved
+          const firstConfigured = ALL_PROVIDERS.find(p => !!next[p.settingsKey]);
+          if (firstConfigured) setSelectedProvider(firstConfigured.id);
         }
-      } catch (error) {
-        console.error('Error loading API keys:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load API keys',
-          variant: 'destructive',
-        });
+      } catch (err) {
+        console.error('Error loading API keys:', err);
+        toast({ title: 'Error', description: 'Failed to load API keys', variant: 'destructive' });
       } finally {
         setInitialLoad(false);
       }
     };
-
-    loadSettings();
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSaveKey = async (provider: AIProvider) => {
-    setLoading(true);
-    try {
-      let key = '';
-      switch (provider) {
-        case 'openai':
-          key = openaiKey;
-          break;
-        case 'openai7':
-          key = openai7Key;
-          break;
-        case 'gemini':
-          key = geminiKey;
-          break;
-        case 'anthropic':
-          key = anthropicKey;
-          break;
-        case 'anthropicclaude':
-          key = anthropicclaudeKey;
-          break;
-        case 'groq':
-          key = groqKey;
-          break;
-        case 'stabilityai':
-          key = stabilityaiKey;
-          break;
-        case 'replicate':
-          key = replicateKey;
-          break;
-        case 'openrouter':
-          key = openrouterKey;
-          break;
-        case 'huggingface':
-          key = huggingfaceKey;
-          break;
-        case 'googleai':
-          key = googleaiKey;
-          break;
-        case 'deepseek':
-          key = deepseekKey;
-          break;
-      }
+  // ── Sorted providers: configured ones float to top ───────────────────────
+  const sortedProviders = useMemo(() => {
+    const configured = ALL_PROVIDERS.filter(p => !!keys[p.settingsKey]);
+    const unconfigured = ALL_PROVIDERS.filter(p => !keys[p.settingsKey]);
+    return { configured, unconfigured };
+  }, [keys]);
 
-      if (!key.trim()) {
-        toast({
-          title: 'Error',
-          description: 'API key cannot be empty',
-          variant: 'destructive',
-        });
-        return;
-      }
+  // ── Save ─────────────────────────────────────────────────────────────────
+  const handleSave = async (provider: AIProvider) => {
+    const meta = ALL_PROVIDERS.find(p => p.id === provider)!;
+    const key = keys[meta.settingsKey];
 
-      const success = await updateApiKey(provider, key);
-      if (success) {
-        toast({
-          title: 'Success',
-          description: `${provider.charAt(0).toUpperCase() + provider.slice(1)} API key saved successfully`,
-        });
-        
-        // Update available providers
-        window.location.reload();
-      } else {
-        toast({
-          title: 'Error',
-          description: `Failed to save ${provider} API key`,
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      console.error(`Error saving ${provider} API key:`, error);
-      toast({
-        title: 'Error',
-        description: `Failed to save ${provider} API key`,
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteKey = async (provider: AIProvider) => {
-    if (!confirm(`Are you sure you want to delete your ${provider} API key?`)) {
+    if (!key.trim()) {
+      toast({ title: 'Error', description: 'API key cannot be empty', variant: 'destructive' });
       return;
     }
 
     setLoading(true);
     try {
+      const success = await updateApiKey(provider, key.trim());
+      if (success) {
+        toast({ title: 'Success', description: `${meta.label} API key saved` });
+        await refreshProviders();
+      } else {
+        toast({ title: 'Error', description: `Failed to save ${meta.label} API key`, variant: 'destructive' });
+      }
+    } catch (err) {
+      toast({ title: 'Error', description: `Failed to save ${meta.label} API key`, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Delete ────────────────────────────────────────────────────────────────
+  const handleDelete = async (provider: AIProvider) => {
+    const meta = ALL_PROVIDERS.find(p => p.id === provider)!;
+    if (!confirm(`Delete your ${meta.label} API key?`)) return;
+
+    setLoading(true);
+    try {
       const success = await deleteApiKey(provider);
       if (success) {
-        toast({
-          title: 'Success',
-          description: `${provider.charAt(0).toUpperCase() + provider.slice(1)} API key deleted successfully`,
-        });
-
-        // Clear the input field
-        switch (provider) {
-          case 'openai':
-            setOpenaiKey('');
-            break;
-          case 'openai7':
-            setOpenai7Key('');
-            break;
-          case 'gemini':
-            setGeminiKey('');
-            break;
-          case 'anthropic':
-            setAnthropicKey('');
-            break;
-          case 'anthropicclaude':
-            setAnthropicclaudeKey('');
-            break;
-          case 'groq':
-            setGroqKey('');
-            break;
-          case 'stabilityai':
-            setStabilityaiKey('');
-            break;
-          case 'replicate':
-            setReplicateKey('');
-            break;
-          case 'openrouter':
-            setOpenrouterKey('');
-            break;
-          case 'huggingface':
-            setHuggingfaceKey('');
-            break;
-          case 'googleai':
-            setGoogleaiKey('');
-            break;
-          case 'deepseek':
-            setDeepseekKey('');
-            break;
-        }
-        
-        // Update available providers
-        window.location.reload();
+        setKeys(prev => ({ ...prev, [meta.settingsKey]: '' }));
+        toast({ title: 'Success', description: `${meta.label} API key deleted` });
+        await refreshProviders();
       } else {
-        toast({
-          title: 'Error',
-          description: `Failed to delete ${provider} API key`,
-          variant: 'destructive',
-        });
+        toast({ title: 'Error', description: `Failed to delete ${meta.label} API key`, variant: 'destructive' });
       }
-    } catch (error) {
-      console.error(`Error deleting ${provider} API key:`, error);
-      toast({
-        title: 'Error',
-        description: `Failed to delete ${provider} API key`,
-        variant: 'destructive',
-      });
+    } catch (err) {
+      toast({ title: 'Error', description: `Failed to delete ${meta.label} API key`, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
   if (initialLoad) {
-    return <div className="p-4 text-center">Loading API key settings...</div>;
+    return <div className="p-4 text-center text-muted-foreground">Loading API key settings…</div>;
   }
+
+  const currentMeta = ALL_PROVIDERS.find(p => p.id === selectedProvider)!;
+  const currentKey = keys[currentMeta.settingsKey];
+  const hasKey = !!currentKey;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>API Key Settings</CardTitle>
         <CardDescription>
-          Add your AI provider API keys to enable AI features in the dashboard.
-          Your keys are securely stored in your user account.
+          Add your AI provider API keys to enable AI-powered search. Keys are stored
+          locally in your browser and never sent to any server.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="mb-6">
-          <Label htmlFor="provider-select" className="mb-2 block">Select AI Provider</Label>
-          <Select value={selectedProvider} onValueChange={(value) => setSelectedProvider(value as AIProvider)}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select an AI provider" />
+      <CardContent className="space-y-6">
+
+        {/* ── Provider selector ── */}
+        <div className="space-y-2">
+          <Label htmlFor="provider-select">Select AI Provider</Label>
+          <Select value={selectedProvider} onValueChange={v => setSelectedProvider(v as AIProvider)}>
+            <SelectTrigger className="w-full" id="provider-select">
+              <SelectValue placeholder="Select a provider" />
             </SelectTrigger>
             <SelectContent>
-              <SelectGroup>
-                <SelectLabel>OpenAI</SelectLabel>
-                <SelectItem value="openai">OpenAI GPT-4</SelectItem>
-                <SelectItem value="openai7">OpenAI GPT-3.5</SelectItem>
-              </SelectGroup>
-              <SelectSeparator />
-              <SelectGroup>
-                <SelectLabel>Anthropic</SelectLabel>
-                <SelectItem value="anthropic">Claude</SelectItem>
-                <SelectItem value="anthropicclaude">Claude 3</SelectItem>
-              </SelectGroup>
-              <SelectSeparator />
-              <SelectGroup>
-                <SelectLabel>Google</SelectLabel>
-                <SelectItem value="gemini">Gemini</SelectItem>
-                <SelectItem value="googleai">Google AI</SelectItem>
-              </SelectGroup>
-              <SelectSeparator />
-              <SelectGroup>
-                <SelectLabel>Other Providers</SelectLabel>
-                <SelectItem value="groq">Groq</SelectItem>
-                <SelectItem value="stabilityai">StabilityAI</SelectItem>
-                <SelectItem value="replicate">Replicate</SelectItem>
-                <SelectItem value="openrouter">OpenRouter</SelectItem>
-                <SelectItem value="huggingface">HuggingFace</SelectItem>
-                <SelectItem value="deepseek">DeepSeek</SelectItem>
-              </SelectGroup>
+
+              {/* Configured providers float to top */}
+              {sortedProviders.configured.length > 0 && (
+                <SelectGroup>
+                  <SelectLabel className="flex items-center gap-1.5 text-emerald-500">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Configured
+                  </SelectLabel>
+                  {sortedProviders.configured.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <span className="flex items-center gap-2">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                        {p.label}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
+
+              {sortedProviders.configured.length > 0 && sortedProviders.unconfigured.length > 0 && (
+                <SelectSeparator />
+              )}
+
+              {/* Unconfigured providers, grouped */}
+              {(['Google', 'OpenAI', 'Anthropic', 'Other Providers'] as const).map(group => {
+                const groupItems = sortedProviders.unconfigured.filter(p => p.group === group);
+                if (groupItems.length === 0) return null;
+                return (
+                  <SelectGroup key={group}>
+                    <SelectLabel>{group}</SelectLabel>
+                    {groupItems.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
+                    ))}
+                  </SelectGroup>
+                );
+              })}
+
             </SelectContent>
           </Select>
+          <p className="text-xs text-muted-foreground">
+            Providers with a ✓ already have a key saved and are ready to use.
+          </p>
         </div>
-        
-        {selectedProvider === 'openai' && (
-          <div className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="openai-key">OpenAI GPT-4 API Key</Label>
-              <div className="flex">
-                <Input
-                  id="openai-key"
-                  type={showOpenaiKey ? 'text' : 'password'}
-                  value={openaiKey}
-                  onChange={(e) => setOpenaiKey(e.target.value)}
-                  placeholder="sk-..."
-                  className="flex-1"
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  type="button"
-                  onClick={() => setShowOpenaiKey(!showOpenaiKey)}
-                  className="ml-2"
-                >
-                  {showOpenaiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Get your API key from the <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">OpenAI dashboard</a>.
-              </p>
-            </div>
-            <div className="flex justify-between mt-4">
-              <Button
-                variant="default"
-                onClick={() => handleSaveKey('openai')}
-                disabled={loading}
-              >
-                <Save className="mr-2 h-4 w-4" />
-                Save Key
-              </Button>
-              {openaiKey && (
-                <Button
-                  variant="destructive"
-                  onClick={() => handleDeleteKey('openai')}
-                  disabled={loading}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Key
-                </Button>
-              )}
-            </div>
+
+        {/* ── Key input for selected provider ── */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="api-key-input">{currentMeta.label} API Key</Label>
+            {hasKey && (
+              <span className="flex items-center gap-1 text-xs text-emerald-500 font-medium">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Key saved
+              </span>
+            )}
           </div>
-        )}
-        
-        {selectedProvider === 'openai7' && (
-          <div className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="openai7-key">OpenAI GPT-3.5 API Key</Label>
-              <div className="flex">
-                <Input
-                  id="openai7-key"
-                  type={showOpenai7Key ? 'text' : 'password'}
-                  value={openai7Key}
-                  onChange={(e) => setOpenai7Key(e.target.value)}
-                  placeholder="sk-..."
-                  className="flex-1"
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  type="button"
-                  onClick={() => setShowOpenai7Key(!showOpenai7Key)}
-                  className="ml-2"
-                >
-                  {showOpenai7Key ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Get your API key from the <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">OpenAI dashboard</a>.
-              </p>
-            </div>
-            <div className="flex justify-between mt-4">
-              <Button
-                variant="default"
-                onClick={() => handleSaveKey('openai7')}
-                disabled={loading}
-              >
-                <Save className="mr-2 h-4 w-4" />
-                Save Key
-              </Button>
-              {openai7Key && (
-                <Button
-                  variant="destructive"
-                  onClick={() => handleDeleteKey('openai7')}
-                  disabled={loading}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Key
-                </Button>
-              )}
-            </div>
+
+          <div className="flex gap-2">
+            <Input
+              id="api-key-input"
+              type={showKey[selectedProvider] ? 'text' : 'password'}
+              value={currentKey}
+              onChange={e => setKeys(prev => ({ ...prev, [currentMeta.settingsKey]: e.target.value }))}
+              placeholder={currentMeta.placeholder}
+              className="flex-1 font-mono text-sm"
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              type="button"
+              onClick={() => setShowKey(prev => ({ ...prev, [selectedProvider]: !prev[selectedProvider] }))}
+              aria-label={showKey[selectedProvider] ? 'Hide key' : 'Show key'}
+            >
+              {showKey[selectedProvider] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </Button>
           </div>
-        )}
-        
-        {selectedProvider === 'gemini' && (
-          <div className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="gemini-key">Gemini API Key</Label>
-              <div className="flex">
-                <Input
-                  id="gemini-key"
-                  type={showGeminiKey ? 'text' : 'password'}
-                  value={geminiKey}
-                  onChange={(e) => setGeminiKey(e.target.value)}
-                  placeholder="AIzaSy..."
-                  className="flex-1"
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  type="button"
-                  onClick={() => setShowGeminiKey(!showGeminiKey)}
-                  className="ml-2"
-                >
-                  {showGeminiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Get your API key from the <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Google AI Studio</a>.
-              </p>
-            </div>
-            <div className="flex justify-between mt-4">
-              <Button
-                variant="default"
-                onClick={() => handleSaveKey('gemini')}
-                disabled={loading}
-              >
-                <Save className="mr-2 h-4 w-4" />
-                Save Key
-              </Button>
-              {geminiKey && (
-                <Button
-                  variant="destructive"
-                  onClick={() => handleDeleteKey('gemini')}
-                  disabled={loading}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Key
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-          
-        {selectedProvider === 'anthropicclaude' && (
-          <div className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="anthropicclaude-key">Claude 3 API Key</Label>
-              <div className="flex">
-                <Input
-                  id="anthropicclaude-key"
-                  type={showAnthropicclaudeKey ? 'text' : 'password'}
-                  value={anthropicclaudeKey}
-                  onChange={(e) => setAnthropicclaudeKey(e.target.value)}
-                  placeholder="sk-ant-..."
-                  className="flex-1"
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  type="button"
-                  onClick={() => setShowAnthropicclaudeKey(!showAnthropicclaudeKey)}
-                  className="ml-2"
-                >
-                  {showAnthropicclaudeKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Get your API key from the <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Anthropic Console</a>.
-              </p>
-            </div>
-            <div className="flex justify-between mt-4">
-              <Button
-                variant="default"
-                onClick={() => handleSaveKey('anthropicclaude')}
-                disabled={loading}
-              >
-                <Save className="mr-2 h-4 w-4" />
-                Save Key
-              </Button>
-              {anthropicclaudeKey && (
-                <Button
-                  variant="destructive"
-                  onClick={() => handleDeleteKey('anthropicclaude')}
-                  disabled={loading}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Key
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-        
-        {selectedProvider === 'groq' && (
-          <div className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="groq-key">Groq API Key</Label>
-              <div className="flex">
-                <Input
-                  id="groq-key"
-                  type={showGroqKey ? 'text' : 'password'}
-                  value={groqKey}
-                  onChange={(e) => setGroqKey(e.target.value)}
-                  placeholder="gsk_..."
-                  className="flex-1"
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  type="button"
-                  onClick={() => setShowGroqKey(!showGroqKey)}
-                  className="ml-2"
-                >
-                  {showGroqKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Get your API key from the <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Groq Console</a>.
-              </p>
-            </div>
-            <div className="flex justify-between mt-4">
-              <Button
-                variant="default"
-                onClick={() => handleSaveKey('groq')}
-                disabled={loading}
-              >
-                <Save className="mr-2 h-4 w-4" />
-                Save Key
-              </Button>
-              {groqKey && (
-                <Button
-                  variant="destructive"
-                  onClick={() => handleDeleteKey('groq')}
-                  disabled={loading}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Key
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-        
-        {selectedProvider === 'stabilityai' && (
-          <div className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="stabilityai-key">StabilityAI API Key</Label>
-              <div className="flex">
-                <Input
-                  id="stabilityai-key"
-                  type={showStabilityaiKey ? 'text' : 'password'}
-                  value={stabilityaiKey}
-                  onChange={(e) => setStabilityaiKey(e.target.value)}
-                  placeholder="sk-..."
-                  className="flex-1"
-                />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    type="button"
-                    onClick={() => setShowStabilityaiKey(!showStabilityaiKey)}
-                    className="ml-2"
-                  >
-                    {showStabilityaiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Get your API key from the <a href="https://platform.stability.ai/account/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">StabilityAI dashboard</a>.
-                </p>
-              </div>
-              <div className="flex justify-between mt-4">
-                <Button
-                  variant="default"
-                  onClick={() => handleSaveKey('stabilityai')}
-                  disabled={loading}
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Key
-                </Button>
-                {stabilityaiKey && (
-                  <Button
-                    variant="destructive"
-                    onClick={() => handleDeleteKey('stabilityai')}
-                    disabled={loading}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete Key
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-          
-          {selectedProvider === 'replicate' && (
-            <div className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="replicate-key">Replicate API Key</Label>
-                <div className="flex">
-                  <Input
-                    id="replicate-key"
-                    type={showReplicateKey ? 'text' : 'password'}
-                    value={replicateKey}
-                    onChange={(e) => setReplicateKey(e.target.value)}
-                    placeholder="r8_..."
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    type="button"
-                    onClick={() => setShowReplicateKey(!showReplicateKey)}
-                    className="ml-2"
-                  >
-                    {showReplicateKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Get your API key from the <a href="https://replicate.com/account/api-tokens" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Replicate dashboard</a>.
-                </p>
-              </div>
-              <div className="flex justify-between mt-4">
-                <Button
-                  variant="default"
-                  onClick={() => handleSaveKey('replicate')}
-                  disabled={loading}
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Key
-                </Button>
-                {replicateKey && (
-                  <Button
-                    variant="destructive"
-                    onClick={() => handleDeleteKey('replicate')}
-                    disabled={loading}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete Key
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-        
-        {selectedProvider === 'openrouter' && (
-          <div className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="openrouter-key">OpenRouter API Key</Label>
-              <div className="flex">
-                <Input
-                  id="openrouter-key"
-                  type={showOpenrouterKey ? 'text' : 'password'}
-                  value={openrouterKey}
-                  onChange={(e) => setOpenrouterKey(e.target.value)}
-                  placeholder="sk-or-..."
-                  className="flex-1"
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  type="button"
-                  onClick={() => setShowOpenrouterKey(!showOpenrouterKey)}
-                  className="ml-2"
-                >
-                  {showOpenrouterKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Get your API key from the <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">OpenRouter dashboard</a>.
-              </p>
-            </div>
-            <div className="flex justify-between mt-4">
-              <Button
-                variant="default"
-                onClick={() => handleSaveKey('openrouter')}
-                disabled={loading}
-              >
-                <Save className="mr-2 h-4 w-4" />
-                Save Key
-              </Button>
-              {openrouterKey && (
-                <Button
-                  variant="destructive"
-                  onClick={() => handleDeleteKey('openrouter')}
-                  disabled={loading}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Key
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-        
-        {selectedProvider === 'huggingface' && (
-          <div className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="huggingface-key">HuggingFace API Key</Label>
-              <div className="flex">
-                <Input
-                  id="huggingface-key"
-                  type={showHuggingfaceKey ? 'text' : 'password'}
-                  value={huggingfaceKey}
-                  onChange={(e) => setHuggingfaceKey(e.target.value)}
-                  placeholder="hf_..."
-                  className="flex-1"
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  type="button"
-                  onClick={() => setShowHuggingfaceKey(!showHuggingfaceKey)}
-                  className="ml-2"
-                >
-                  {showHuggingfaceKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Get your API key from the <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">HuggingFace dashboard</a>.
-              </p>
-            </div>
-            <div className="flex justify-between mt-4">
-              <Button
-                variant="default"
-                onClick={() => handleSaveKey('huggingface')}
-                disabled={loading}
-              >
-                <Save className="mr-2 h-4 w-4" />
-                Save Key
-              </Button>
-              {huggingfaceKey && (
-                  <Button
-                    variant="destructive"
-                    onClick={() => handleDeleteKey('huggingface')}
-                    disabled={loading}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete Key
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-          
-          {selectedProvider === 'googleai' && (
-            <div className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="googleai-key">Google AI API Key</Label>
-                <div className="flex">
-                  <Input
-                    id="googleai-key"
-                    type={showGoogleaiKey ? 'text' : 'password'}
-                    value={googleaiKey}
-                    onChange={(e) => setGoogleaiKey(e.target.value)}
-                    placeholder="AIza..."
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    type="button"
-                    onClick={() => setShowGoogleaiKey(!showGoogleaiKey)}
-                    className="ml-2"
-                  >
-                    {showGoogleaiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Get your API key from the <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Google AI Studio</a>.
-                </p>
-              </div>
-              <div className="flex justify-between mt-4">
-                <Button
-                  variant="default"
-                  onClick={() => handleSaveKey('googleai')}
-                  disabled={loading}
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Key
-                </Button>
-                {googleaiKey && (
-                  <Button
-                    variant="destructive"
-                    onClick={() => handleDeleteKey('googleai')}
-                    disabled={loading}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete Key
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-          
-          {selectedProvider === 'deepseek' && (
-            <div className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="deepseek-key">DeepSeek API Key</Label>
-                <div className="flex">
-                  <Input
-                    id="deepseek-key"
-                    type={showDeepseekKey ? 'text' : 'password'}
-                    value={deepseekKey}
-                    onChange={(e) => setDeepseekKey(e.target.value)}
-                    placeholder="sk-..."
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    type="button"
-                    onClick={() => setShowDeepseekKey(!showDeepseekKey)}
-                    className="ml-2"
-                  >
-                    {showDeepseekKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Get your API key from the <a href="https://platform.deepseek.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">DeepSeek dashboard</a>.
-                </p>
-              </div>
-              <div className="flex justify-between mt-4">
-                <Button
-                  variant="default"
-                  onClick={() => handleSaveKey('deepseek')}
-                  disabled={loading}
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Key
-                </Button>
-                {deepseekKey && (
-                  <Button
-                    variant="destructive"
-                    onClick={() => handleDeleteKey('deepseek')}
-                    disabled={loading}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete Key
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      <CardFooter className="flex justify-between">
-        <div className="text-sm text-muted-foreground">
-          Your API keys are stored securely in your user account and are never shared.
+
+          <p className="text-sm text-muted-foreground">
+            Get your API key from the{' '}
+            <a
+              href={currentMeta.docsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline"
+            >
+              {currentMeta.docsLabel}
+            </a>
+            .
+            {currentMeta.id === 'gemini' && (
+              <span className="block mt-1 text-xs">
+                Both <code className="bg-muted px-1 rounded">AIzaSy…</code> and the newer{' '}
+                <code className="bg-muted px-1 rounded">AQ.Ab…</code> key formats are supported.
+              </span>
+            )}
+          </p>
         </div>
-      </CardFooter>
+
+        {/* ── Actions ── */}
+        <div className="flex items-center justify-between pt-1">
+          <Button
+            variant="default"
+            onClick={() => handleSave(selectedProvider)}
+            disabled={loading || !currentKey.trim()}
+          >
+            <Save className="mr-2 h-4 w-4" />
+            Save Key
+          </Button>
+
+          {hasKey && (
+            <Button
+              variant="destructive"
+              onClick={() => handleDelete(selectedProvider)}
+              disabled={loading}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Key
+            </Button>
+          )}
+        </div>
+
+        <p className="text-xs text-muted-foreground border-t pt-4">
+          Your API keys are stored locally in your browser (localStorage) and are never
+          transmitted to or stored on any server.
+        </p>
+      </CardContent>
     </Card>
   );
 }

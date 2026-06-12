@@ -48,53 +48,53 @@ export async function loadApiKeys(): Promise<void> {
     const userSettings = await getUserSettings();
 
     if (userSettings) {
-      // Override environment variables with user settings if available
+      // Override environment variables with user settings if available (and trim them to prevent whitespace issues)
       if (userSettings.gemini_api_key) {
-        GEMINI_API_KEY = userSettings.gemini_api_key;
+        GEMINI_API_KEY = userSettings.gemini_api_key.trim();
       }
 
       if (userSettings.openai_api_key) {
-        OPENAI_API_KEY = userSettings.openai_api_key;
+        OPENAI_API_KEY = userSettings.openai_api_key.trim();
       }
 
       if (userSettings.openai7_api_key) {
-        OPENAI7_API_KEY = userSettings.openai7_api_key;
+        OPENAI7_API_KEY = userSettings.openai7_api_key.trim();
       }
 
       if (userSettings.anthropic_api_key) {
-        ANTHROPIC_API_KEY = userSettings.anthropic_api_key;
+        ANTHROPIC_API_KEY = userSettings.anthropic_api_key.trim();
       }
 
       if (userSettings.anthropicclaude_api_key) {
-        ANTHROPICCLAUDE_API_KEY = userSettings.anthropicclaude_api_key;
+        ANTHROPICCLAUDE_API_KEY = userSettings.anthropicclaude_api_key.trim();
       }
 
       if (userSettings.groq_api_key) {
-        GROQ_API_KEY = userSettings.groq_api_key;
+        GROQ_API_KEY = userSettings.groq_api_key.trim();
       }
 
       if (userSettings.stabilityai_api_key) {
-        STABILITYAI_API_KEY = userSettings.stabilityai_api_key;
+        STABILITYAI_API_KEY = userSettings.stabilityai_api_key.trim();
       }
 
       if (userSettings.replicate_api_key) {
-        REPLICATE_API_KEY = userSettings.replicate_api_key;
+        REPLICATE_API_KEY = userSettings.replicate_api_key.trim();
       }
 
       if (userSettings.openrouter_api_key) {
-        OPENROUTER_API_KEY = userSettings.openrouter_api_key;
+        OPENROUTER_API_KEY = userSettings.openrouter_api_key.trim();
       }
 
       if (userSettings.huggingface_api_key) {
-        HUGGINGFACE_API_KEY = userSettings.huggingface_api_key;
+        HUGGINGFACE_API_KEY = userSettings.huggingface_api_key.trim();
       }
 
       if (userSettings.googleai_api_key) {
-        GOOGLEAI_API_KEY = userSettings.googleai_api_key;
+        GOOGLEAI_API_KEY = userSettings.googleai_api_key.trim();
       }
 
       if (userSettings.deepseek_api_key) {
-        DEEPSEEK_API_KEY = userSettings.deepseek_api_key;
+        DEEPSEEK_API_KEY = userSettings.deepseek_api_key.trim();
       }
     }
 
@@ -365,16 +365,22 @@ export async function searchTools(query: string, provider: AIProvider = 'gemini'
   // Ensure API keys are loaded before proceeding
   await loadApiKeys();
 
-  const prompt = `Search for developer tools related to: "${query}".
-  
-  Return 5 relevant tools as a JSON array of objects with the following properties:
-  - name: The name of the tool
-  - url: The official URL (must be accurate)
-  - description: A brief description (20-30 words)
-  - category: A suitable category
-  - tags: An array of 3-5 relevant tags
-  
-  Return only the JSON array without any other text.`;
+  const prompt = `You are a developer tools search engine. Search for developer tools related to: "${query}".
+
+Return EXACTLY 5 relevant developer tools as a raw JSON array. Rules:
+- Output ONLY the JSON array, nothing else
+- Do NOT wrap in markdown code fences (no \`\`\`json)
+- Do NOT add any explanation, thinking, or extra text before or after
+- Start your response with [ and end with ]
+
+Each object must have:
+- name: tool name (string)
+- url: official URL (string, must be accurate)
+- description: brief description, 20-30 words (string)
+- category: one of: AI, Productivity, Design, Frontend, Backend, DevOps, Testing, Database, Analytics, Other (string)
+- tags: 3-5 relevant tags (array of strings)
+
+[`;
 
   try {
     console.log(`Searching for tools with query: "${query}" using ${provider}`);
@@ -442,21 +448,42 @@ export async function searchTools(query: string, provider: AIProvider = 'gemini'
         break;
     }
 
-    // Extract JSON from the response
+    // Extract JSON from the response — handle all Gemini output formats
+    let cleaned = responseText.trim();
 
-    // Clean the response to extract JSON
-    const jsonMatch = responseText.match(/\[\s*\{[\s\S]*\}\s*\]/);
-    if (!jsonMatch) {
-      console.error('No JSON array found in response:', responseText);
-      throw new Error('No valid JSON array found in response');
+    // 1. Strip markdown code fences (```json ... ``` or ``` ... ```)
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+
+    // 2. If the response starts mid-array (prompt ends with `[`), prepend it
+    if (!cleaned.startsWith('[') && !cleaned.startsWith('{')) {
+      cleaned = '[' + cleaned;
     }
 
+    // 3. Try direct parse first
     try {
-      return JSON.parse(jsonMatch[0]);
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError);
-      throw new Error('Failed to parse JSON response from API');
+      const parsed = JSON.parse(cleaned);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch { /* fall through to regex */ }
+
+    // 4. Try regex extraction as fallback
+    const jsonMatch = cleaned.match(/\[\s*\{[\s\S]*?\}\s*\]/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch { /* fall through */ }
     }
+
+    // 5. Last resort — find the first [ and last ] and try parsing that slice
+    const start = cleaned.indexOf('[');
+    const end = cleaned.lastIndexOf(']');
+    if (start !== -1 && end > start) {
+      try {
+        return JSON.parse(cleaned.slice(start, end + 1));
+      } catch { /* fall through */ }
+    }
+
+    console.error('No JSON array found in response:', responseText);
+    throw new Error('No valid JSON array found in response');
   } catch (error) {
     console.error('Error searching for tools:', error);
     throw error instanceof Error
@@ -601,53 +628,97 @@ async function generateWithGemini(prompt: string): Promise<string> {
     }],
     generationConfig: {
       temperature: 0.3,
-      maxOutputTokens: 512,
+      maxOutputTokens: 1024,
     }
   };
 
-  console.log('Gemini request body:', JSON.stringify(requestBody));
+  // Models in priority order — 2.5/2.0 flash first, aliases as last-resort fallbacks
+  const models = [
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-001',
+    'gemini-2.0-flash-lite',
+    'gemini-2.0-flash-lite-001',
+    'gemini-flash-latest',
+  ];
+  let lastError: Error | null = null;
 
-  try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
+  for (const model of models) {
+    try {
+      console.log(`Attempting Gemini API request with model: ${model}`);
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini API error response:', errorText);
+      if (response.ok) {
+        const data = await response.json();
 
-      try {
-        const errorData = JSON.parse(errorText);
-        console.error('Parsed error data:', errorData);
-      } catch (e) {
-        // Text wasn't valid JSON
+        if (data.candidates?.[0]?.content?.parts) {
+          const parts = data.candidates[0].content.parts;
+          // Thinking models return [{thought: true, text: '...'}, {text: 'actual answer'}]
+          // We want only the non-thought parts (the actual response text)
+          const textParts = parts
+            .filter((p: { thought?: boolean; text?: string }) => !p.thought && typeof p.text === 'string')
+            .map((p: { text: string }) => p.text)
+            .join('');
+          if (textParts) {
+            console.log(`Gemini API request succeeded using model: ${model}`);
+            return textParts.trim();
+          }
+        }
+      } else {
+        const errorText = await response.text();
+        console.warn(`Gemini API request failed for model ${model} with status ${response.status}:`, errorText);
+
+        // 403 always means auth failure — throw immediately, retrying won't help
+        if (response.status === 403) {
+          const errorJson = JSON.parse(errorText).catch?.(() => ({})) ?? {};
+          throw new Error(errorJson?.error?.message || `Gemini API auth failed (403)`);
+        }
+
+        // 400 might be model-specific (e.g. unsupported param) — only throw if it's a key error
+        if (response.status === 400) {
+          try {
+            const errorJson = JSON.parse(errorText);
+            const errMsg = errorJson.error?.message || '';
+            if (errMsg.toLowerCase().includes('api key') || errMsg.toLowerCase().includes('invalid key')) {
+              throw new Error(errMsg);
+            }
+            // Model-specific 400 (unsupported param etc.) — try next model
+            console.warn(`Model ${model} returned 400 (likely unsupported param), trying next.`);
+            lastError = new Error(`Model ${model} error 400: ${errMsg || response.statusText}`);
+            continue;
+          } catch (e) {
+            if (e instanceof Error && (e.message.includes('API key') || e.message.includes('invalid key'))) throw e;
+            lastError = new Error(`Gemini API request failed for model ${model}: 400`);
+            continue;
+          }
+        }
+
+        // Special handling for 503 errors — try next model
+        if (response.status === 503) {
+          lastError = new Error(`Gemini API is currently unavailable (503) for model ${model}.`);
+          continue;
+        }
+
+        lastError = new Error(`Gemini API request failed for model ${model}: ${response.status} ${response.statusText}`);
       }
-
-      // Special handling for 503 errors
-      if (response.status === 503) {
-        throw new Error(`Gemini API is currently unavailable (503 Service Unavailable). This may be due to high traffic or the model being overloaded. Please try again later or switch to a different AI provider in the settings.`);
+    } catch (error) {
+      console.error(`Error generating with model ${model}:`, error);
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      // If it was a fatal auth error or key check error, stop model loop
+      if (error instanceof Error && (error.message.includes('key') || error.message.includes('API key') || error.message.includes('403') || error.message.includes('400'))) {
+        throw error;
       }
-
-      throw new Error(`Gemini API request failed: ${response.status} ${response.statusText}`);
     }
-
-    const data = await response.json();
-
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
-      console.error('Unexpected Gemini API response structure:', data);
-      throw new Error('Invalid response from Gemini API');
-    }
-
-    return data.candidates[0].content.parts[0].text.trim();
-  } catch (error) {
-    console.error('Error in generateWithGemini:', error);
-    // Re-throw the error to be handled by the caller
-    throw error;
   }
+
+  throw lastError || new Error('All Gemini model requests failed.');
 }
 
 async function generateWithOpenAI(prompt: string): Promise<string> {

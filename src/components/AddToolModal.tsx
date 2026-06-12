@@ -144,11 +144,10 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
   };
 
   const handleAIEnhance = async () => {
-    if (!formData.name || !formData.url) {
+    if (!formData.url) {
       setErrors(prev => ({
         ...prev,
-        name: !formData.name ? 'Tool name is required for AI enhancement' : '',
-        url: !formData.url ? 'URL is required for AI enhancement' : ''
+        url: 'URL is required for AI enhancement'
       }));
       return;
     }
@@ -156,8 +155,25 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
     setIsAIProcessing(true);
     setProcessingField('all');
     try {
+      let nameToUse = formData.name;
+      if (!nameToUse) {
+        try {
+          const domain = new URL(formData.url).hostname.replace('www.', '');
+          nameToUse = domain.split('.')[0];
+          nameToUse = nameToUse.charAt(0).toUpperCase() + nameToUse.slice(1);
+        } catch (e) {
+          const match = formData.url.match(/(?:https?:\/\/)?(?:www\.)?([^\/\s\.]+)/);
+          if (match && match[1]) {
+            nameToUse = match[1].charAt(0).toUpperCase() + match[1].slice(1);
+          } else {
+            nameToUse = 'New Tool';
+          }
+        }
+        setFormData(prev => ({ ...prev, name: nameToUse }));
+      }
+
       const aiSuggestion = await categorizeAndTagTool(
-        formData.name, 
+        nameToUse, 
         formData.url, 
         formData.description,
         currentProvider
@@ -182,11 +198,10 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
   };
 
   const generateAIContent = async (field: 'description' | 'notes' | 'tags') => {
-    if (!formData.name || !formData.url) {
+    if (!formData.url) {
       setErrors(prev => ({
         ...prev,
-        name: !formData.name ? 'Tool name is required for AI generation' : '',
-        url: !formData.url ? 'URL is required for AI generation' : ''
+        url: 'URL is required for AI generation'
       }));
       return;
     }
@@ -194,9 +209,26 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
     setIsAIProcessing(true);
     setProcessingField(field);
     try {
+      let nameToUse = formData.name;
+      if (!nameToUse) {
+        try {
+          const domain = new URL(formData.url).hostname.replace('www.', '');
+          nameToUse = domain.split('.')[0];
+          nameToUse = nameToUse.charAt(0).toUpperCase() + nameToUse.slice(1);
+        } catch (e) {
+          const match = formData.url.match(/(?:https?:\/\/)?(?:www\.)?([^\/\s\.]+)/);
+          if (match && match[1]) {
+            nameToUse = match[1].charAt(0).toUpperCase() + match[1].slice(1);
+          } else {
+            nameToUse = 'New Tool';
+          }
+        }
+        setFormData(prev => ({ ...prev, name: nameToUse }));
+      }
+
       console.log(`Starting AI generation for ${field} using ${currentProvider}...`);
       const content = await generateFieldContent(
-        formData.name, 
+        nameToUse, 
         formData.url, 
         field, 
         formData.description,
@@ -433,7 +465,7 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
                   variant="ghost"
                   size="sm"
                   onClick={() => generateAIContent('description')}
-                  disabled={isAIProcessing || !formData.name || !formData.url}
+                  disabled={isAIProcessing || !formData.url}
                   className="h-6 text-xs"
                 >
                   {processingField === 'description' ? (
@@ -581,7 +613,7 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
                   variant="ghost"
                   size="sm"
                   onClick={() => generateAIContent('tags')}
-                  disabled={isAIProcessing || !formData.name || !formData.url}
+                  disabled={isAIProcessing || !formData.url}
                   className="h-6 text-xs"
                 >
                   {processingField === 'tags' ? (
@@ -635,7 +667,7 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
                   variant="ghost"
                   size="sm"
                   onClick={() => generateAIContent('notes')}
-                  disabled={isAIProcessing || !formData.name || !formData.url}
+                  disabled={isAIProcessing || !formData.url}
                   className="h-6 text-xs"
                 >
                   {processingField === 'notes' ? (
