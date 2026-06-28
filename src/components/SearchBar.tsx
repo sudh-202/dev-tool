@@ -68,6 +68,11 @@ export function SearchBar({
 
   // Debounced API search
   useEffect(() => {
+    // `active` guards against stale requests: if the query changes (or the
+    // component unmounts) before this request resolves, we ignore its result
+    // and — importantly — suppress its error toast.
+    let active = true;
+
     const fetchSearchResults = async () => {
       if (debouncedQuery.length < 3) {
         setApiResults([]);
@@ -78,7 +83,8 @@ export function SearchBar({
       try {
         console.log(`Searching for tools with query: "${debouncedQuery}" using ${currentProvider}`);
         const results = await searchTools(debouncedQuery, currentProvider);
-        
+        if (!active) return;
+
         // Filter out results that match existing tools by URL
         const filteredResults = results.filter(result => {
           return !tools.some(tool => {
@@ -95,9 +101,10 @@ export function SearchBar({
         setApiResults(filteredResults);
         setIsDropdownOpen(localResults.length > 0 || filteredResults.length > 0);
       } catch (error) {
+        if (!active) return;
         console.error('Error fetching search results:', error);
         setApiResults([]);
-        
+
         // Display error toast only for non-network related errors
         // to avoid spamming the user with toasts for connection issues
         if (!(error instanceof Error && error.message.includes('Failed to fetch'))) {
@@ -108,11 +115,15 @@ export function SearchBar({
           });
         }
       } finally {
-        setIsApiLoading(false);
+        if (active) setIsApiLoading(false);
       }
     };
 
     fetchSearchResults();
+
+    return () => {
+      active = false;
+    };
   }, [currentProvider, debouncedQuery, localResults.length, tools]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Tool } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bookmark, BookmarkCheck, Clock, TrendingUp, Star, ExternalLink, Pencil, Trash2, MoreVertical, Heart, FolderPlus } from 'lucide-react';
+import { Clock, TrendingUp, ExternalLink, Pencil, Trash2, MoreVertical, Heart, FolderPlus } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
 
 interface ToolListItemProps {
@@ -28,8 +28,10 @@ export function ToolListItem({ tool, onEdit, onDelete, onTogglePin, onToggleFavo
     }
   };
 
+  // Pinned + Favorites are merged into a single "saved" concept (the heart).
+  const isSaved = tool.isFavorite || tool.isPinned;
   const faviconUrl = getFaviconUrl(tool.url);
-  const daysSinceLastUsed = tool.lastUsed 
+  const daysSinceLastUsed = tool.lastUsed
     ? Math.floor((new Date().getTime() - new Date(tool.lastUsed).getTime()) / (1000 * 60 * 60 * 24))
     : null;
 
@@ -54,11 +56,8 @@ export function ToolListItem({ tool, onEdit, onDelete, onTogglePin, onToggleFavo
             <h3 className="font-semibold text-sm sm:text-base text-foreground truncate group-hover:text-primary transition-colors">
               {tool.name}
             </h3>
-            {tool.isPinned && (
-              <BookmarkCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary ml-1 sm:ml-2 flex-shrink-0" />
-            )}
-            {tool.isFavorite && (
-              <Heart className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-rose-500 ml-1 sm:ml-2 flex-shrink-0" />
+            {isSaved && (
+              <Heart className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-rose-500 fill-rose-500 ml-1 sm:ml-2 flex-shrink-0" />
             )}
           </div>
           
@@ -102,16 +101,9 @@ export function ToolListItem({ tool, onEdit, onDelete, onTogglePin, onToggleFavo
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onTogglePin(tool.id)}>
-              {tool.isPinned ? (
-                <><BookmarkCheck className="h-3.5 w-3.5 mr-2" /> Unpin</>
-              ) : (
-                <><Bookmark className="h-3.5 w-3.5 mr-2" /> Pin</>
-              )}
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onToggleFavorite(tool.id)}>
-              <Heart className={`h-3.5 w-3.5 mr-2 ${tool.isFavorite ? "text-rose-500" : ""}`} />
-              {tool.isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+              <Heart className={`h-3.5 w-3.5 mr-2 ${isSaved ? "text-rose-500 fill-rose-500" : ""}`} />
+              {isSaved ? "Remove from Favorites" : "Add to Favorites"}
             </DropdownMenuItem>
             
             {/* Add to Category submenu for mobile */}
@@ -195,22 +187,9 @@ export function ToolListItem({ tool, onEdit, onDelete, onTogglePin, onToggleFavo
             onClick={() => onToggleFavorite(tool.id)}
             className="h-8 px-2"
           >
-            <Heart className={`h-4 w-4 ${tool.isFavorite ? "text-rose-500" : "text-muted-foreground"}`} />
+            <Heart className={`h-4 w-4 ${isSaved ? "text-rose-500 fill-rose-500" : "text-muted-foreground"}`} />
           </Button>
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onTogglePin(tool.id)}
-            className="h-8 px-2"
-          >
-            {tool.isPinned ? (
-              <BookmarkCheck className="h-4 w-4 text-primary" />
-            ) : (
-              <Bookmark className="h-4 w-4 text-muted-foreground" />
-            )}
-          </Button>
-          
+
           {/* Add to Category dropdown for desktop */}
           {onAddToCategory && availableCategories && availableCategories.length > 0 && (
             <DropdownMenu>

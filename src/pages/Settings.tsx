@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, Eye, EyeOff, Mail, Settings as SettingsIcon, User, Lock } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { AppLayout } from '@/components/AppLayout';
 import { getCurrentUser } from '@/services/authService';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,7 +32,8 @@ export default function Settings() {
 
   return (
     <ProtectedRoute>
-      <div className="container mx-auto py-6 max-w-4xl">
+      <AppLayout>
+        <div className="container mx-auto py-6 max-w-4xl px-4 mt-12 md:mt-0">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
@@ -139,7 +141,8 @@ export default function Settings() {
             )}
           </div>
         </div>
-      </div>
+        </div>
+      </AppLayout>
     </ProtectedRoute>
   );
 }

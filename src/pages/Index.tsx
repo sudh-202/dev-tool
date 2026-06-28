@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Tool, Category } from "@/types";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useBookmarks, resolveBookmarkView } from "@/hooks/useBookmarks";
 import { useSupabaseTools } from "@/hooks/useSupabaseTools";
 import { Sidebar } from "@/components/Sidebar";
 import { SearchBar } from "@/components/SearchBar";
@@ -15,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import { MostUsedTools } from "@/components/MostUsedTools";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui/badge";
 import {
   Sparkles,
   Clock,
@@ -23,7 +24,6 @@ import {
   Grid,
   List,
   Loader2,
-  X,
   Download,
 } from "lucide-react";
 import {
@@ -113,6 +113,19 @@ const Index = () => {
 
   const [selectedCategory, setSelectedCategory] = useState("all");
 
+  // Sync category selection from a `?cat=` param (set when navigating here from
+  // the sidebar on a secondary page like Bookmarks/Settings).
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const cat = searchParams.get("cat");
+    if (cat) {
+      setSelectedCategory(cat);
+      // Clear the param so it doesn't override later in-app navigation.
+      searchParams.delete("cat");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   // Reset category filter when switching away from categories view
   useEffect(() => {
     if (selectedCategory !== "categories") {
@@ -128,7 +141,6 @@ const Index = () => {
     "view-mode",
     "grid"
   );
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customCategories, setCustomCategories] = useLocalStorage<string[]>(
     "custom-categories",
     []
@@ -137,6 +149,19 @@ const Index = () => {
     "deleted-categories",
     []
   );
+
+  // Bookmarks: a quick-launch list of tool IDs, optionally organised into groups.
+  const { bookmarkIds, toggleBookmark, groups: bookmarkGroupDefs } = useBookmarks();
+
+  // Resolve bookmarks + groups into the render-ready view the sidebar expects.
+  const { resolvedGroups: bookmarkGroups, ungrouped: ungroupedBookmarks } = useMemo(
+    () => resolveBookmarkView(tools, bookmarkIds, bookmarkGroupDefs),
+    [tools, bookmarkIds, bookmarkGroupDefs]
+  );
+
+  // Pinned and Favorites are merged into a single "Saved" concept (the heart).
+  // A tool counts as saved if either flag is set, and toggling sets both.
+  const isSaved = (tool: Tool) => tool.isFavorite || tool.isPinned;
 
   const allCategoryNames = useMemo(() => {
     return [...defaultCategories, ...customCategories].filter(
@@ -224,30 +249,12 @@ const Index = () => {
     }));
   }, [tools, customCategories, allCategoryNames]);
 
-  // Get all unique tags across tools
-  const availableTags = useMemo(() => {
-    const tagsSet = new Set<string>();
-    tools.forEach((tool) => {
-      tool.tags.forEach((tag) => tagsSet.add(tag));
-    });
-    return Array.from(tagsSet).sort();
-  }, [tools]);
-
-  const [showAllTags, setShowAllTags] = useState(false);
-
-  // Determine which tags to display initially
-  const visibleTags = useMemo(() => {
-    return showAllTags ? availableTags : availableTags.slice(0, 10);
-  }, [availableTags, showAllTags]);
-
   const filteredTools = useMemo(() => {
     let filtered = tools;
 
     // Filter by category
-    if (selectedCategory === "pinned") {
-      filtered = filtered.filter((tool) => tool.isPinned);
-    } else if (selectedCategory === "favorites") {
-      filtered = filtered.filter((tool) => tool.isFavorite);
+    if (selectedCategory === "favorites" || selectedCategory === "pinned") {
+      filtered = filtered.filter((tool) => isSaved(tool));
     } else if (selectedCategory === "recently-used") {
       filtered = filtered.filter((tool) => tool.lastUsed);
     } else if (selectedCategory === "categories") {
@@ -259,13 +266,6 @@ const Index = () => {
           tool.categories || (tool.category ? [tool.category] : []);
         return toolCategories.includes(selectedCategory);
       });
-    }
-
-    // Filter by tags if any are selected
-    if (selectedTags.length > 0) {
-      filtered = filtered.filter((tool) =>
-        selectedTags.some((tag) => tool.tags.includes(tag))
-      );
     }
 
     // Filter by search query
@@ -286,16 +286,18 @@ const Index = () => {
       if (sortBy === "usage") {
         return (b.usageCount || 0) - (a.usageCount || 0);
       } else {
-        // Default: pinned first, then by creation date
-        if (a.isPinned !== b.isPinned) {
-          return a.isPinned ? -1 : 1;
+        // Default: saved (favorite/pinned) first, then by creation date
+        const aSaved = isSaved(a);
+        const bSaved = isSaved(b);
+        if (aSaved !== bSaved) {
+          return aSaved ? -1 : 1;
         }
         return (
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
       }
     });
-  }, [tools, selectedCategory, searchQuery, sortBy, selectedTags]);
+  }, [tools, selectedCategory, searchQuery, sortBy]);
 
   // Group tools by category for "pinned", "favorites", and "categories" views, show flat list for "all"
   const groupedTools = useMemo(() => {
@@ -303,11 +305,10 @@ const Index = () => {
       // For "all" view, show tools in a flat list without grouping by category
       return { "All Tools": filteredTools };
     } else if (
-      selectedCategory === "pinned" ||
       selectedCategory === "favorites" ||
       selectedCategory === "categories"
     ) {
-      // Group tools by category for "pinned", "favorites", and "categories" views
+      // Group tools by category for "favorites" and "categories" views
       const grouped: Record<string, Tool[]> = {};
 
       filteredTools.forEach((tool) => {
@@ -375,8 +376,7 @@ const Index = () => {
     return groupedTools;
   }, [groupedTools, selectedCategory, selectedCategoryFilter]);
 
-  const pinnedCount = tools.filter((tool) => tool.isPinned).length;
-  const favoritesCount = tools.filter((tool) => tool.isFavorite).length;
+  const favoritesCount = tools.filter((tool) => isSaved(tool)).length;
   const allToolsCount = tools.length; // Total unique tools
 
   // Calculate number of unique categories
@@ -491,13 +491,14 @@ const Index = () => {
     }
   };
 
+  // Pinned + Favorites are merged: toggling sets both flags to the same value
+  // so the single heart is the one source of truth.
   const handleToggleFavorite = async (id: string) => {
+    const tool = tools.find((t) => t.id === id);
+    if (!tool) return;
+    const next = !isSaved(tool);
     try {
-      await toggleFavorite(id);
-      toast({
-        title: "Favorites updated",
-        description: "Tool has been updated in your favorites.",
-      });
+      await updateTool({ ...tool, isFavorite: next, isPinned: next });
     } catch (err) {
       toast({
         title: "Error",
@@ -717,7 +718,6 @@ const Index = () => {
         ]}
         selectedCategory={selectedCategory}
         onCategorySelect={setSelectedCategory}
-        pinnedCount={pinnedCount}
         favoritesCount={favoritesCount}
         allToolsCount={allToolsCount}
         categoriesCount={categoriesCount}
@@ -725,6 +725,10 @@ const Index = () => {
         onCreateCategory={handleCreateCategory}
         onDeleteCategory={handleDeleteCategory}
         customCategories={customCategories}
+        bookmarkGroups={bookmarkGroups}
+        ungroupedBookmarks={ungroupedBookmarks}
+        onBookmarkClick={handleToolClick}
+        onRemoveBookmark={toggleBookmark}
       />
 
       <div className="flex-1 flex flex-col md:ml-60">
@@ -735,15 +739,13 @@ const Index = () => {
                 <h2 className="text-xl sm:text-2xl font-bold text-foreground text-center md:text-left">
                   {selectedCategory === "all"
                     ? "All Tools"
-                    : selectedCategory === "pinned"
-                      ? "Pinned Tools"
-                      : selectedCategory === "favorites"
-                        ? "Favorites"
-                        : selectedCategory === "categories"
-                          ? "Categories"
-                          : selectedCategory === "recently-used"
-                            ? "Recently Used"
-                            : selectedCategory}
+                    : selectedCategory === "favorites"
+                      ? "Favorites"
+                      : selectedCategory === "categories"
+                        ? "Categories"
+                        : selectedCategory === "recently-used"
+                          ? "Recently Used"
+                          : selectedCategory}
                 </h2>
                 <p className="text-sm text-muted-foreground text-center md:text-left">
                   {filteredTools.length} tool
@@ -982,110 +984,52 @@ const Index = () => {
                 />
               )}
 
-              {/* Tags filter */}
-              <div className="mb-4">
-                <div className="text-sm font-medium mb-2">Filter by tags:</div>
-                <div className="flex flex-wrap gap-2">
-                  {visibleTags.map((tag) => (
-                    <Badge
-                      key={tag}
-                      variant={
-                        selectedTags.includes(tag) ? "default" : "outline"
-                      }
-                      className={`cursor-pointer ${selectedTags.includes(tag)
-                        ? ""
-                        : "text-muted-foreground"
-                        }`}
-                      onClick={() => {
-                        if (selectedTags.includes(tag)) {
-                          setSelectedTags(
-                            selectedTags.filter((t) => t !== tag)
-                          );
-                        } else {
-                          setSelectedTags([...selectedTags, tag]);
-                        }
-                      }}
-                    >
-                      {tag}
-                      {selectedTags.includes(tag) && (
-                        <X className="ml-1 h-3 w-3" />
-                      )}
-                    </Badge>
-                  ))}
-                  {availableTags.length > 10 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-xs"
-                      onClick={() => setShowAllTags(!showAllTags)}
-                    >
-                      {showAllTags
-                        ? "Show Less"
-                        : `Show More (${availableTags.length - 10})`}
-                    </Button>
-                  )}
-                  {selectedTags.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-xs"
-                      onClick={() => setSelectedTags([])}
-                    >
-                      Clear all
-                    </Button>
-                  )}
-
-                  {selectedCategory === "categories" && (
-                    <div className="mt-4">
-                      <div className="flex flex-col gap-3">
-                        <div>
-                          <h3 className="text-sm font-medium text-foreground mb-2">
-                            Filter by Category
-                          </h3>
-                          <p className="text-xs text-muted-foreground">
-                            {selectedCategoryFilter === "all"
-                              ? `Showing all categories (${filteredTools.length} tools)`
-                              : `Showing ${selectedCategoryFilter} (${filteredGroupedTools[selectedCategoryFilter]
-                                ?.length || 0
-                              } tools)`}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            variant={
-                              selectedCategoryFilter === "all"
-                                ? "default"
-                                : "outline"
-                            }
-                            size="sm"
-                            onClick={() => setSelectedCategoryFilter("all")}
-                            className="h-8 px-3 text-xs"
-                          >
-                            All Categories
-                          </Button>
-                          {availableCategoriesForFilter.map((category) => (
-                            <Button
-                              key={category}
-                              variant={
-                                selectedCategoryFilter === category
-                                  ? "default"
-                                  : "outline"
-                              }
-                              size="sm"
-                              onClick={() =>
-                                setSelectedCategoryFilter(category)
-                              }
-                              className="h-8 px-3 text-xs"
-                            >
-                              {category}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
+              {/* Category filter (only on the Categories view) */}
+              {selectedCategory === "categories" && (
+                <div className="mb-4">
+                  <div className="flex flex-col gap-3">
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground mb-2">
+                        Filter by Category
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedCategoryFilter === "all"
+                          ? `Showing all categories (${filteredTools.length} tools)`
+                          : `Showing ${selectedCategoryFilter} (${filteredGroupedTools[selectedCategoryFilter]
+                            ?.length || 0
+                          } tools)`}
+                      </p>
                     </div>
-                  )}
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant={
+                          selectedCategoryFilter === "all" ? "default" : "outline"
+                        }
+                        size="sm"
+                        onClick={() => setSelectedCategoryFilter("all")}
+                        className="h-8 px-3 text-xs"
+                      >
+                        All Categories
+                      </Button>
+                      {availableCategoriesForFilter.map((category) => (
+                        <Button
+                          key={category}
+                          variant={
+                            selectedCategoryFilter === category
+                              ? "default"
+                              : "outline"
+                          }
+                          size="sm"
+                          onClick={() => setSelectedCategoryFilter(category)}
+                          className="h-8 px-3 text-xs"
+                        >
+                          {category}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {loading ? (
                 <div className="text-center py-12">
@@ -1172,6 +1116,8 @@ const Index = () => {
                               onToolClick={handleToolClick}
                               onAddToCategory={handleAddToolToCategory}
                               availableCategories={allCategoryNames}
+                              isBookmarked={bookmarkIds.includes(tool.id)}
+                              onToggleBookmark={toggleBookmark}
                             />
                           ))}
                         </div>

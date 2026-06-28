@@ -361,26 +361,85 @@ export async function categorizeAndTagTool(
   return { category: 'Other', tags: [] };
 }
 
+// Robustly extract a tools array from a model response. Handles: clean JSON
+// arrays, markdown fences, wrapper objects ({tools:[...]}), and truncated output
+// (salvages the complete objects when the array got cut off at the token limit).
+function parseToolsFromResponse(responseText: string): AIGeneratedTool[] | null {
+  const cleaned = responseText
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```\s*$/i, '')
+    .trim();
+
+  const tryParse = (s: string): unknown => {
+    try {
+      return JSON.parse(s);
+    } catch {
+      return undefined;
+    }
+  };
+
+  const looksLikeTool = (o: unknown): o is AIGeneratedTool =>
+    !!o && typeof o === 'object' && ('url' in o || 'name' in o);
+
+  const normalize = (val: unknown): AIGeneratedTool[] | null => {
+    if (Array.isArray(val)) {
+      const tools = val.filter(looksLikeTool);
+      return tools.length ? tools : null;
+    }
+    if (val && typeof val === 'object') {
+      const obj = val as Record<string, unknown>;
+      // Common wrapper keys the model sometimes uses despite instructions.
+      for (const key of ['tools', 'results', 'data', 'items']) {
+        if (Array.isArray(obj[key])) {
+          const tools = (obj[key] as unknown[]).filter(looksLikeTool);
+          if (tools.length) return tools;
+        }
+      }
+      // A single bare tool object.
+      if (looksLikeTool(obj)) return [obj];
+    }
+    return null;
+  };
+
+  // 1. Direct parse.
+  let result = normalize(tryParse(cleaned));
+  if (result) return result;
+
+  // 2. Slice from the first [ to the last ] (strips any surrounding prose).
+  const start = cleaned.indexOf('[');
+  const end = cleaned.lastIndexOf(']');
+  if (start !== -1 && end > start) {
+    result = normalize(tryParse(cleaned.slice(start, end + 1)));
+    if (result) return result;
+  }
+
+  // 3. Salvage individual objects — recovers a truncated array by keeping every
+  // complete {...} object (tool objects have no nested braces, only [] for tags).
+  const objectMatches = cleaned.match(/\{[^{}]*\}/g);
+  if (objectMatches) {
+    const tools = objectMatches
+      .map((o) => tryParse(o))
+      .filter(looksLikeTool);
+    if (tools.length) return tools;
+  }
+
+  return null;
+}
+
 export async function searchTools(query: string, provider: AIProvider = 'gemini'): Promise<AIGeneratedTool[]> {
   // Ensure API keys are loaded before proceeding
   await loadApiKeys();
 
-  const prompt = `You are a developer tools search engine. Search for developer tools related to: "${query}".
+  const prompt = `You are a developer tools search engine. Find exactly 5 developer tools related to: "${query}".
 
-Return EXACTLY 5 relevant developer tools as a raw JSON array. Rules:
-- Output ONLY the JSON array, nothing else
-- Do NOT wrap in markdown code fences (no \`\`\`json)
-- Do NOT add any explanation, thinking, or extra text before or after
-- Start your response with [ and end with ]
-
-Each object must have:
+Respond with ONLY a raw JSON array (no markdown, no code fences, no explanation, no extra text).
+Each item in the array must be an object with:
 - name: tool name (string)
 - url: official URL (string, must be accurate)
 - description: brief description, 20-30 words (string)
 - category: one of: AI, Productivity, Design, Frontend, Backend, DevOps, Testing, Database, Analytics, Other (string)
-- tags: 3-5 relevant tags (array of strings)
-
-[`;
+- tags: 3-5 relevant tags (array of strings)`;
 
   try {
     console.log(`Searching for tools with query: "${query}" using ${provider}`);
@@ -444,42 +503,13 @@ Each object must have:
         break;
       case 'gemini':
       default:
-        responseText = await generateWithGemini(prompt);
+        responseText = await generateWithGemini(prompt, true);
         break;
     }
 
-    // Extract JSON from the response — handle all Gemini output formats
-    let cleaned = responseText.trim();
-
-    // 1. Strip markdown code fences (```json ... ``` or ``` ... ```)
-    cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
-
-    // 2. If the response starts mid-array (prompt ends with `[`), prepend it
-    if (!cleaned.startsWith('[') && !cleaned.startsWith('{')) {
-      cleaned = '[' + cleaned;
-    }
-
-    // 3. Try direct parse first
-    try {
-      const parsed = JSON.parse(cleaned);
-      return Array.isArray(parsed) ? parsed : [parsed];
-    } catch { /* fall through to regex */ }
-
-    // 4. Try regex extraction as fallback
-    const jsonMatch = cleaned.match(/\[\s*\{[\s\S]*?\}\s*\]/);
-    if (jsonMatch) {
-      try {
-        return JSON.parse(jsonMatch[0]);
-      } catch { /* fall through */ }
-    }
-
-    // 5. Last resort — find the first [ and last ] and try parsing that slice
-    const start = cleaned.indexOf('[');
-    const end = cleaned.lastIndexOf(']');
-    if (start !== -1 && end > start) {
-      try {
-        return JSON.parse(cleaned.slice(start, end + 1));
-      } catch { /* fall through */ }
+    const parsed = parseToolsFromResponse(responseText);
+    if (parsed) {
+      return parsed;
     }
 
     console.error('No JSON array found in response:', responseText);
@@ -612,25 +642,13 @@ Return ONLY a JSON array of tags, like this: ["tag1", "tag2", "tag3"]`;
 
 // Provider-specific generation functions
 
-async function generateWithGemini(prompt: string): Promise<string> {
+async function generateWithGemini(prompt: string, jsonMode = false): Promise<string> {
   // Ensure API keys are loaded
   await loadApiKeys();
 
   if (!GEMINI_API_KEY) {
     throw new Error('Gemini API key is missing. Please add your API key in the Settings page.');
   }
-
-  const requestBody = {
-    contents: [{
-      parts: [{
-        text: prompt
-      }]
-    }],
-    generationConfig: {
-      temperature: 0.3,
-      maxOutputTokens: 1024,
-    }
-  };
 
   // Models in priority order — 2.5/2.0 flash first, aliases as last-resort fallbacks
   const models = [
@@ -646,6 +664,28 @@ async function generateWithGemini(prompt: string): Promise<string> {
   for (const model of models) {
     try {
       console.log(`Attempting Gemini API request with model: ${model}`);
+
+      // Build generationConfig per-model: 2.5 flash is a *thinking* model, and its
+      // thinking tokens consume maxOutputTokens — leaving little/no room for the
+      // actual answer (the root cause of empty/truncated "No valid JSON" responses).
+      // Disable thinking on 2.5 models and give a generous output budget.
+      const generationConfig: Record<string, unknown> = {
+        temperature: 0.3,
+        // Larger budget in JSON mode so a 5-item array never gets truncated.
+        maxOutputTokens: jsonMode ? 4096 : 2048,
+      };
+      if (jsonMode) {
+        generationConfig.responseMimeType = 'application/json';
+      }
+      if (model.includes('2.5')) {
+        generationConfig.thinkingConfig = { thinkingBudget: 0 };
+      }
+
+      const requestBody = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig,
+      };
+
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: {
@@ -670,6 +710,11 @@ async function generateWithGemini(prompt: string): Promise<string> {
             return textParts.trim();
           }
         }
+
+        // Empty / thinking-only response (often finishReason MAX_TOKENS) — try next model
+        console.warn(`Model ${model} returned no usable text (finishReason: ${data.candidates?.[0]?.finishReason ?? 'unknown'}), trying next.`);
+        lastError = new Error(`Gemini model ${model} returned an empty response.`);
+        continue;
       } else {
         const errorText = await response.text();
         console.warn(`Gemini API request failed for model ${model} with status ${response.status}:`, errorText);
@@ -848,7 +893,7 @@ async function generateWithOpenRouter(prompt: string): Promise<string> {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
       'HTTP-Referer': window.location.origin, // Required by OpenRouter
-      'X-Title': 'DevToolbox' // Required by OpenRouter
+      'X-Title': 'DevTools' // Required by OpenRouter
     },
     body: JSON.stringify(requestBody)
   });

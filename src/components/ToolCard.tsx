@@ -2,10 +2,9 @@ import { useState } from 'react';
 import { Tool } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Bookmark, BookmarkCheck, Clock, TrendingUp, ExternalLink, 
-  Pencil, Trash2, Heart, HeartOff, FolderPlus 
+import {
+  Clock, TrendingUp, ExternalLink,
+  Pencil, Trash2, Heart, FolderPlus, Bookmark, BookmarkCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -24,9 +23,11 @@ interface ToolCardProps {
   onToolClick: (tool: Tool) => void;
   onAddToCategory?: (toolId: string, categoryName: string) => void;
   availableCategories?: string[];
+  isBookmarked?: boolean;
+  onToggleBookmark?: (id: string) => void;
 }
 
-export function ToolCard({ tool, onEdit, onDelete, onTogglePin, onToggleFavorite, onToolClick, onAddToCategory, availableCategories }: ToolCardProps) {
+export function ToolCard({ tool, onEdit, onDelete, onTogglePin, onToggleFavorite, onToolClick, onAddToCategory, availableCategories, isBookmarked, onToggleBookmark }: ToolCardProps) {
   const [imageError, setImageError] = useState(false);
   
   const getFaviconUrl = (url: string) => {
@@ -38,8 +39,10 @@ export function ToolCard({ tool, onEdit, onDelete, onTogglePin, onToggleFavorite
     }
   };
 
+  // Pinned + Favorites are merged into a single "saved" concept (the heart).
+  const isSaved = tool.isFavorite || tool.isPinned;
   const faviconUrl = getFaviconUrl(tool.url);
-  const daysSinceLastUsed = tool.lastUsed 
+  const daysSinceLastUsed = tool.lastUsed
     ? Math.floor((new Date().getTime() - new Date(tool.lastUsed).getTime()) / (1000 * 60 * 60 * 24))
     : null;
 
@@ -70,35 +73,40 @@ export function ToolCard({ tool, onEdit, onDelete, onTogglePin, onToggleFavorite
             </div>
           </div>
           <div className="flex gap-1">
+            {onToggleBookmark && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onToggleBookmark(tool.id)}
+                title={isBookmarked ? "Remove from bookmarks bar" : "Add to bookmarks bar"}
+                className={cn(
+                  "p-0.5 h-auto w-auto",
+                  isBookmarked ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity"
+                )}
+              >
+                {isBookmarked ? (
+                  <BookmarkCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-foreground" />
+                ) : (
+                  <Bookmark className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
+                )}
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onToggleFavorite(tool.id)}
+              title={isSaved ? "Remove from favorites" : "Add to favorites"}
               className={cn(
-                "p-0.5 h-auto w-auto", 
-                tool.isFavorite ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity"
+                "p-0.5 h-auto w-auto",
+                isSaved ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity"
               )}
             >
-              {tool.isFavorite ? (
-                <Heart className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-rose-500" />
-              ) : (
-                <Heart className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onTogglePin(tool.id)}
-              className={cn(
-                "p-0.5 h-auto w-auto", 
-                tool.isPinned ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity"
-              )}
-            >
-              {tool.isPinned ? (
-                <BookmarkCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" />
-              ) : (
-                <Bookmark className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
-              )}
+              <Heart
+                className={cn(
+                  "h-3 w-3 sm:h-3.5 sm:w-3.5",
+                  isSaved ? "text-rose-500 fill-rose-500" : "text-muted-foreground"
+                )}
+              />
             </Button>
           </div>
         </div>
@@ -123,25 +131,6 @@ export function ToolCard({ tool, onEdit, onDelete, onTogglePin, onToggleFavorite
             </div>
           )}
         </div>
-
-        {tool.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-1.5 sm:mb-2">
-            {tool.tags.slice(0, 3).map((tag) => (
-              <Badge
-                key={tag}
-                variant="secondary"
-                className="text-[10px] bg-muted/50 text-muted-foreground hover:bg-muted/70 border-0 px-1 py-0 h-4"
-              >
-                {tag}
-              </Badge>
-            ))}
-            {tool.tags.length > 3 && (
-              <Badge variant="secondary" className="text-[10px] bg-muted/50 text-muted-foreground border-0 px-1 py-0 h-4">
-                +{tool.tags.length - 3}
-              </Badge>
-            )}
-          </div>
-        )}
 
         {/* Action Buttons - One compact row for all screen sizes */}
         <div className="flex items-center gap-1 flex-wrap">

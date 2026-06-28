@@ -68,8 +68,8 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
         category: editingTool.category || '',
         categories: editingTool.categories || (editingTool.category ? [editingTool.category] : []),
         tags: [...editingTool.tags],
-        isPinned: editingTool.isPinned,
-        isFavorite: editingTool.isFavorite || false,
+        isPinned: editingTool.isFavorite || editingTool.isPinned || false,
+        isFavorite: editingTool.isFavorite || editingTool.isPinned || false,
         email: editingTool.email || '',
         apiKey: editingTool.apiKey || '',
         notes: editingTool.notes || '',
@@ -606,60 +606,6 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
 
           <div className="space-y-2">
             <div className="flex justify-between">
-              <Label>Tags</Label>
-              <div className="flex items-center">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => generateAIContent('tags')}
-                  disabled={isAIProcessing || !formData.url}
-                  className="h-6 text-xs"
-                >
-                  {processingField === 'tags' ? (
-                    <>Loading...</>
-                  ) : (
-                    <>
-                      <Sparkles className="h-3 w-3 mr-1" />
-                      Generate with AI
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Input
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
-                placeholder="Add tag and press Enter"
-                className="flex-1"
-              />
-              <Button type="button" onClick={handleAddTag} size="sm">
-                Add
-              </Button>
-            </div>
-            {formData.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {formData.tags.map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant="secondary"
-                    className="text-xs flex items-center gap-1"
-                  >
-                    {tag}
-                    <X
-                      className="h-3 w-3 cursor-pointer"
-                      onClick={() => handleRemoveTag(tag)}
-                    />
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex justify-between">
               <Label htmlFor="notes">Notes</Label>
               <div className="flex items-center">
                 <Button
@@ -697,20 +643,11 @@ export function AddToolModal({ isOpen, onClose, onSave, categories, editingTool 
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
-              id="isPinned"
-              checked={formData.isPinned}
-              onChange={(e) => setFormData({...formData, isPinned: e.target.checked})}
-              className="rounded border-gray-300 text-primary focus:ring-primary"
-            />
-            <Label htmlFor="isPinned" className="cursor-pointer">Pin this tool</Label>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
               id="isFavorite"
               checked={formData.isFavorite}
-              onChange={(e) => setFormData({...formData, isFavorite: e.target.checked})}
+              onChange={(e) =>
+                setFormData({ ...formData, isFavorite: e.target.checked, isPinned: e.target.checked })
+              }
               className="rounded border-gray-300 text-rose-500 focus:ring-rose-500"
             />
             <Label htmlFor="isFavorite" className="cursor-pointer">Add to favorites</Label>

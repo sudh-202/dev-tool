@@ -9,6 +9,7 @@ import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
 import PromptDocs from "./pages/PromptDocs";
 import Workbench from "./pages/Workbench";
+import Bookmarks from "./pages/Bookmarks";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { MigrationPrompt } from "./components/MigrationPrompt";
 import { testSupabaseConnection } from "./utils/supabaseTest";
@@ -34,7 +35,7 @@ const App = () => {
   useEffect(() => {
     // Check for development mode keyboard shortcut
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+Alt+D to show dev tools
+      // Ctrl+Alt+D to show DevTools
       if (e.ctrlKey && e.altKey && e.code === "KeyD") {
         setShowDevTools(!showDevTools);
       }
@@ -260,6 +261,7 @@ const App = () => {
             <Route path="/settings" element={<Settings />} />
             <Route path="/prompts" element={<PromptDocs />} />
             <Route path="/workbench" element={<Workbench />} />
+            <Route path="/bookmarks" element={<Bookmarks />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
